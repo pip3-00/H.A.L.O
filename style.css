@@ -1,0 +1,45 @@
+.general,
+.tarjeta{
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0.9rem;
+    margin:0.4 0;
+    border-radius: 6px;
+    border-left: 6px solid;
+}
+
+.general{ font-size:1.2rem;
+font-weight: bold;
+}
+
+
+
+.estado-verde    { background: #d1fae5; border-color: #047857; }
+.estado-amarillo { background: #fef3c7; border-color: #b45309; }
+.estado-rojo     { background: #fee2e2; border-color: #b91c1c; }
+.estado-sin-dato { background: #f3f4f6; border-color: #6b7280; }
+
+.tarjeta{
+    flex-wrap: wrap;
+}
+
+.mensaje{
+    flex-basis:100%;
+    font-size: 0.95rem;
+    margin-top: 0.3rem;
+}
+
+
+.mensaje p{margin:0.2rem 0;}
+
+.aviso{
+    background-color: #1e293b;
+    color: #ffff;
+    padding:0.8rem 1rem;
+    margin:0.5rem 0;
+    border-left: 6px solid #b91c1c;
+    border-radius:6px;
+}
+
+.aviso p {margin:0.3rem 0;}
