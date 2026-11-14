@@ -13,6 +13,7 @@ const INDICADORES = {
 const PRIORIDAD = { "sin-dato": 0, verde: 1, amarillo: 2, rojo: 3 };
 const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
 const TENDENCIA = { sueno: 0, animo: 0};
+const HISTORIAL = []
 const UMBRAL_TENDENCIA = 3;
 const INTERVALO_MS = 4000;
 
@@ -186,9 +187,132 @@ function calcularEntorno(){
         porcentajeLimite:porcentajeLimite,
         perdidaOsea:perdidaOsea,
         gravedad:gravedad[claveHabitat],
-        nombreHabitat:habitat.nombre,
+        nombreHabitat: HABITATS[claveHabitat].nombre,
         diaMision:dia,
     };
+}
+
+function registrarLectura(mediciones, resultados, entorno) {
+    HISTORIAL.push({
+        numero: HISTORIAL.length + 1,
+        tiempo: new Date().toLocaleTimeString(),
+        mediciones: Object.assign({}, mediciones),
+        resultados: Object.assign({}, resultados),
+        entorno: Object.assign({}, entorno),
+    });
+}
+
+function detectarTendencias() {
+    const claves = ["sueno", "animo"];
+    const alertas = [];
+
+    for (let i = 0; i < claves.length; i++) {
+        const clave = claves[i];
+        const ultimas = HISTORIAL.slice(-UMBRAL_TENDENCIA);
+
+        if (ultimas.length < UMBRAL_TENDENCIA) continue;
+
+        let todasMalas = true;
+        for (let j = 0; j < ultimas.length; j++) {
+            const estado = ultimas[j].resultados[clave].estado;
+            if (estado !== "rojo" && estado !== "amarillo") {
+                todasMalas = false;
+                break;
+            }
+        }
+
+        if (todasMalas) {
+            alertas.push(clave);
+        }
+    }
+
+    return alertas;
+}
+
+function graficarHistorial() {
+    const canvas = document.getElementById("grafica");
+    const ctx = canvas.getContext("2d");
+    const ancho = canvas.width;
+    const alto = canvas.height;
+    const margen = 50;
+
+    ctx.clearRect(0, 0, ancho, alto);
+
+    const series = [
+        { clave: "temperatura", color: "#e74c3c", min: 34, max: 41 },
+        { clave: "frecuencia",  color: "#3498db", min: 30, max: 140 },
+        { clave: "glucosa",     color: "#f39c12", min: 40, max: 260 },
+    ];
+
+    const n = HISTORIAL.length;
+    const pasoX = (ancho - margen * 2) / Math.max(n - 1, 1);
+
+    // fondo
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(0, 0, ancho, alto);
+
+    // ejes
+    ctx.strokeStyle = "#444";
+    ctx.beginPath();
+    ctx.moveTo(margen, margen);
+    ctx.lineTo(margen, alto - margen);
+    ctx.lineTo(ancho - margen, alto - margen);
+    ctx.stroke();
+
+    // números de lectura en eje X
+    ctx.fillStyle = "#aaa";
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    for (let i = 0; i < n; i++) {
+        const x = margen + i * pasoX;
+        ctx.fillText(HISTORIAL[i].numero, x, alto - margen + 15);
+    }
+
+    // dibujar cada serie
+    for (let s = 0; s < series.length; s++) {
+        const serie = series[s];
+        ctx.strokeStyle = serie.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        for (let i = 0; i < n; i++) {
+            const valor = HISTORIAL[i].mediciones[serie.clave];
+            if (valor === null) continue;
+
+            const x = margen + i * pasoX;
+            const y = alto - margen - ((valor - serie.min) / (serie.max - serie.min)) * (alto - margen * 2);
+
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+
+        // puntos
+        for (let i = 0; i < n; i++) {
+            const valor = HISTORIAL[i].mediciones[serie.clave];
+            if (valor === null) continue;
+
+            const x = margen + i * pasoX;
+            const y = alto - margen - ((valor - serie.min) / (serie.max - serie.min)) * (alto - margen * 2);
+
+            ctx.fillStyle = serie.color;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // leyenda
+    ctx.font = "12px monospace";
+    for (let s = 0; s < series.length; s++) {
+        const lx = margen + s * 150;
+        ctx.fillStyle = series[s].color;
+        ctx.fillRect(lx, 8, 12, 12);
+        ctx.fillText(series[s].clave, lx + 16, 18);
+    }
 }
 
 function mostrarEntorno(entorno){
@@ -196,13 +320,13 @@ function mostrarEntorno(entorno){
 
     let oseaTexto = "N/A (gravedad parcial)";
     if(entorno.perdidaOsea !== null){
-        oseaTexto = entorno.perdidaOsea[0].toFixed(1) + "-" + entorno.peridaOsea[1].toFixed(1) + "%";
+        oseaTexto = entorno.perdidaOsea[0].toFixed(1) + "-" + entorno.perdidaOsea[1].toFixed(1) + "%";
     }
     panel.innerHTML = `
     <div class="tarjeta-entorno">
     <h3>Entorno - ${entorno.nombreHabitat} (dia ${entorno.diaMision})</h3>
     <p>Gravedad: ${entorno.gravedad}g </p>
-    <p>Radiacion acumulada: ${entorno.radiacionMSv.toFixed(1)} mSv (${entorno.porcentajeLimite.toFixed(1)}% del limite de carrera)}</p>
+    <p>Radiacion acumulada: ${entorno.radiacionMSv.toFixed(1)} mSv (${entorno.porcentajeLimite.toFixed(1)}% del limite de carrera)</p>
     <p>Perdida osea estimada:${oseaTexto}</p>
     </div>`;
 }
@@ -333,13 +457,26 @@ function iniciarAvisoTierra(){
     }, 1000);
 }
 
-function avisarTierra(general){
-    if(general ==="rojo" && estadoAnterior !== "rojo"){
-        iniciarAvisoTierra();
-    }
-    estadoAnterior = general;
-}
+const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
 
+function avisarTierra(resultados) {
+    let emergenciaAguda = false;
+    for (let i = 0; i < AGUDOS.length; i++) {
+        if (resultados[AGUDOS[i]].estado === "rojo") {
+            emergenciaAguda = true;
+            break;
+        }
+    }
+
+    const tendencias = detectarTendencias();
+
+    if ((emergenciaAguda || tendencias.length > 0) && estadoAnterior !== "alerta-enviada") {
+        iniciarAvisoTierra();
+        estadoAnterior = "alerta-enviada";
+    } else if (!emergenciaAguda && tendencias.length === 0) {
+        estadoAnterior = null;
+    }
+}
 
 function procesar() {
     const mediciones = leerMediciones();
@@ -348,12 +485,17 @@ function procesar() {
     console.table(resultados);
     console.log("Estado general:", general);
     mostrarResultados(mediciones, resultados, general);
-    avisarTierra(general);
 
     const entorno = calcularEntorno();
     mostrarEntorno(entorno);
-}
 
+    registrarLectura(mediciones, resultados, entorno);
+    avisarTierra(resultados);
+
+    if (HISTORIAL.length >= 2) {
+        graficarHistorial();
+    }
+}
 
 
 // ===== 4. CONEXIONES =====
