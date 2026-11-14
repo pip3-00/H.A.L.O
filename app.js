@@ -11,6 +11,9 @@ const INDICADORES = {
 };
 
 const PRIORIDAD = { "sin-dato": 0, verde: 1, amarillo: 2, rojo: 3 };
+const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
+const TENDENCIA = { sueno: 0, animo: 0};
+const UMBRAL_TENDENCIA = 3;
 const INTERVALO_MS = 4000;
 
 const NOMBRES = {
@@ -77,6 +80,45 @@ const HABITATS = {
     marte: { nombre: "Base en Marte", retrasoSeg: 720, protocolo: "Estás en máxima autonomía. Sigue el protocolo mientras llega la respuesta." },
 };
 
+const ESCENARIOS = {
+    normal: {
+        temperatura: [36.8, 0.4],   // verde: 36.4–37.2
+        frecuencia:  [72, 8],       // verde: 64–80
+        sistolica:   [115, 8],      // verde: 107–123
+        diastolica:  [75, 6],       // verde: 69–81
+        glucosa:     [95, 15],      // verde: 80–110
+        sueno:       [7, 1],        // verde: 6–8
+        animo:       [4, 0.5],      // verde: 3.5–4.5
+    },
+    fiebre: {
+        temperatura: [39.5, 0.3],   // ROJO alto (≥39)
+        frecuencia:  [110, 8],      // AMARILLO-ROJO alto (taquicardia por fiebre)
+        sistolica:   [105, 8],      // verde-bajo (vasodilatación por fiebre)
+        diastolica:  [65, 6],       // verde-bajo
+        glucosa:     [105, 15],     // verde (estrés metabólico leve)
+        sueno:       [5.5, 1],      // AMARILLO bajo (la fiebre interrumpe el sueño)
+        animo:       [2, 0.5],      // AMARILLO bajo
+    },
+    hipotension: {
+        temperatura: [36.5, 0.3],   // verde
+        frecuencia:  [105, 10],     // AMARILLO alto (taquicardia compensatoria)
+        sistolica:   [75, 5],       // ROJO bajo (<80)
+        diastolica:  [45, 5],       // ROJO bajo (<50)
+        glucosa:     [90, 15],      // verde
+        sueno:       [7, 1],        // verde
+        animo:       [3, 0.5],      // verde-bajo
+    },
+    hipoglucemia: {
+        temperatura: [36.6, 0.3],   // verde
+        frecuencia:  [95, 10],      // AMARILLO alto (respuesta adrenérgica)
+        sistolica:   [110, 8],      // verde
+        diastolica:  [72, 6],       // verde
+        glucosa:     [48, 4],       // ROJO bajo (<54)
+        sueno:       [6, 1],        // AMARILLO bajo
+        animo:       [2, 0.5],      // AMARILLO bajo (síntomas neuroglucopénicos)
+    },
+};
+
 // ===== 1. UTILIDADES =====
 
 function variar(base, margen) {
@@ -100,13 +142,73 @@ function formatearTiempo(segundos) {
 
 // ===== 2. LEER =====
 
-function simularAstroskin() {
-    document.getElementById("temperatura").value = variar(36.8, 0.4).toFixed(1);
-    document.getElementById("frecuencia").value = Math.round(variar(72, 8));
-    document.getElementById("sistolica").value = Math.round(variar(115, 8));
-    document.getElementById("diastolica").value = Math.round(variar(75, 6));
-    document.getElementById("sueno").value = Math.round(variar(7, 1) * 2) / 2;
+function simularAstroskin(){
+    const nombre = document.getElementById("escenario").value;
+    const esc = ESCENARIOS[nombre];
+
+    document.getElementById("temperatura").value = variar(esc.temperatura[0], esc.temperatura[1]).toFixed(1);
+    document.getElementById("frecuencia").value  = Math.round(variar(esc.frecuencia[0], esc.frecuencia[1]));
+    document.getElementById("sistolica").value   = Math.round(variar(esc.sistolica[0], esc.sistolica[1]));
+    document.getElementById("diastolica").value  = Math.round(variar(esc.diastolica[0], esc.diastolica[1]));
+    document.getElementById("glucosa").value     = Math.round(variar(esc.glucosa[0], esc.glucosa[1]));
+    document.getElementById("sueno").value       = Math.round(variar(esc.sueno[0], esc.sueno[1]) * 2) / 2;
+    document.getElementById("animo").value       = Math.round(variar(esc.animo[0], esc.animo[1]));
 }
+
+function calcularEntorno(){
+    const claveHabitat = document.getElementById("habitat").value;
+    const dia = Number (document.getElementById("dia-mision").value) || 1;
+
+    let radiacionMSv = 0 ;
+
+    if(claveHabitat === "iss"){
+        radiacionMSv = 0.35 * dia;
+    } else if (claveHabitat === "luna"){
+        radiacionMSv = 0.35 * dia;
+    } else if (claveHabitat === "transito"){
+        radiacionMSv = 1.8 *dia;
+    } else if (claveHabitat === "marte"){
+        radiacionMSv = (1.8 * 180) + (0.64 * dia);
+    }
+
+    const porcentajeLimite = (radiacionMSv / 600) * 100;
+
+    let perdidaOsea = null;
+    if(claveHabitat === "iss" || claveHabitat === "transito"){
+        const meses = dia / 30;
+        perdidaOsea = [meses * 1, meses * 1.5];
+    }
+
+    const gravedad = {iss: 0, transito: 0, luna: 0.16, marte: 0.38};
+
+    return{
+        radiacionMSv:radiacionMSv,
+        porcentajeLimite:porcentajeLimite,
+        perdidaOsea:perdidaOsea,
+        gravedad:gravedad[claveHabitat],
+        nombreHabitat:habitat.nombre,
+        diaMision:dia,
+    };
+}
+
+function mostrarEntorno(entorno){
+    const panel = document.getElementById("panel-entorno");
+
+    let oseaTexto = "N/A (gravedad parcial)";
+    if(entorno.perdidaOsea !== null){
+        oseaTexto = entorno.perdidaOsea[0].toFixed(1) + "-" + entorno.peridaOsea[1].toFixed(1) + "%";
+    }
+    panel.innerHTML = `
+    <div class="tarjeta-entorno">
+    <h3>Entorno - ${entorno.nombreHabitat} (dia ${entorno.diaMision})</h3>
+    <p>Gravedad: ${entorno.gravedad}g </p>
+    <p>Radiacion acumulada: ${entorno.radiacionMSv.toFixed(1)} mSv (${entorno.porcentajeLimite.toFixed(1)}% del limite de carrera)}</p>
+    <p>Perdida osea estimada:${oseaTexto}</p>
+    </div>`;
+}
+
+
+
 
 function leerMediciones() {
     return {
@@ -208,8 +310,7 @@ let cuentaAtras = null;
 function iniciarAvisoTierra(){
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
-    let restante = Math.round (habitat.retrasoSeg * 2);1
-
+    let restante = Math.round(habitat.retrasoSeg * 2);
 
     function pintar(){
         caja.innerHTML =`<div class="aviso">
@@ -248,7 +349,12 @@ function procesar() {
     console.log("Estado general:", general);
     mostrarResultados(mediciones, resultados, general);
     avisarTierra(general);
+
+    const entorno = calcularEntorno();
+    mostrarEntorno(entorno);
 }
+
+
 
 // ===== 4. CONEXIONES =====
 
@@ -282,4 +388,8 @@ botonVivo.addEventListener("click", function () {
         temporizador = null;
         botonVivo.textContent = "Iniciar modo en vivo";
     }
+});
+
+document.getElementById("btn-asistente").addEventListener("click", function () {
+    // llama a consultarAsistente() con los datos actuales
 });
