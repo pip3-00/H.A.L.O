@@ -602,11 +602,6 @@ formulario.addEventListener("submit", function (evento) {
     procesar();
 });
 
-const botonAstroskin = document.getElementById("btn-astroskin");
-botonAstroskin.addEventListener("click", function () {
-    simularAstroskin();
-    procesar();
-});
 
 let temporizador = null;
 const botonVivo = document.getElementById("btn-vivo");
@@ -627,11 +622,11 @@ botonVivo.addEventListener("click", function () {
     if (temporizador === null) {
         cicloEnVivo();
         temporizador = setInterval(cicloEnVivo, INTERVALO_MS);
-        botonVivo.textContent = "Detener modo en vivo";
+        botonVivo.textContent = "Detener datos simulados";
     } else {
         clearInterval(temporizador);
         temporizador = null;
-        botonVivo.textContent = "Iniciar modo en vivo";
+        botonVivo.textContent = "Iniciar datos simulados";
     }
 });
 
