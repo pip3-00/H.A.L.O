@@ -11,9 +11,7 @@ const INDICADORES = {
 };
 
 const PRIORIDAD = { "sin-dato": 0, verde: 1, amarillo: 2, rojo: 3 };
-const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
-const TENDENCIA = { sueno: 0, animo: 0};
-const HISTORIAL = []
+const HISTORIAL = [];
 const UMBRAL_TENDENCIA = 3;
 const INTERVALO_MS = 4000;
 
@@ -25,8 +23,7 @@ const NOMBRES = {
     glucosa: { nombre: "Glucosa", unidad: "mg/dl" },
     sueno: { nombre: "Sueño", unidad: "h" },
     animo: { nombre: "Estado de Animo", unidad: "/5" },
-
-}
+};
 
 const TEXTO_ESTADO = {
     verde: "Normal",
@@ -73,7 +70,6 @@ const MENSAJES = {
     },
 };
 
-
 const HABITATS = {
     iss: { nombre: "estacion espacial", retrasoSeg: 0.5, protocolo: "Los médicos responden casi al instante. Prepárate por si se decide una evacuación." },
     transito: { nombre: "Nave en Transito a Marte", retrasoSeg: 720, protocolo: "No hay regreso posible durante el viaje. Todo se trata a bordo: sigue el protocolo." },
@@ -83,40 +79,40 @@ const HABITATS = {
 
 const ESCENARIOS = {
     normal: {
-        temperatura: [36.8, 0.4],   // verde: 36.4–37.2
-        frecuencia:  [72, 8],       // verde: 64–80
-        sistolica:   [115, 8],      // verde: 107–123
-        diastolica:  [75, 6],       // verde: 69–81
-        glucosa:     [95, 15],      // verde: 80–110
-        sueno:       [7, 1],        // verde: 6–8
-        animo:       [4, 0.5],      // verde: 3.5–4.5
+        temperatura: [36.8, 0.4],
+        frecuencia: [72, 8],
+        sistolica: [115, 8],
+        diastolica: [75, 6],
+        glucosa: [95, 15],
+        sueno: [7, 1],
+        animo: [4, 0.5],
     },
     fiebre: {
-        temperatura: [39.5, 0.3],   // ROJO alto (≥39)
-        frecuencia:  [110, 8],      // AMARILLO-ROJO alto (taquicardia por fiebre)
-        sistolica:   [105, 8],      // verde-bajo (vasodilatación por fiebre)
-        diastolica:  [65, 6],       // verde-bajo
-        glucosa:     [105, 15],     // verde (estrés metabólico leve)
-        sueno:       [5.5, 1],      // AMARILLO bajo (la fiebre interrumpe el sueño)
-        animo:       [2, 0.5],      // AMARILLO bajo
+        temperatura: [39.5, 0.3],
+        frecuencia: [110, 8],
+        sistolica: [105, 8],
+        diastolica: [65, 6],
+        glucosa: [105, 15],
+        sueno: [5.5, 1],
+        animo: [2, 0.5],
     },
     hipotension: {
-        temperatura: [36.5, 0.3],   // verde
-        frecuencia:  [105, 10],     // AMARILLO alto (taquicardia compensatoria)
-        sistolica:   [75, 5],       // ROJO bajo (<80)
-        diastolica:  [45, 5],       // ROJO bajo (<50)
-        glucosa:     [90, 15],      // verde
-        sueno:       [7, 1],        // verde
-        animo:       [3, 0.5],      // verde-bajo
+        temperatura: [36.5, 0.3],
+        frecuencia: [105, 10],
+        sistolica: [75, 5],
+        diastolica: [45, 5],
+        glucosa: [90, 15],
+        sueno: [7, 1],
+        animo: [3, 0.5],
     },
     hipoglucemia: {
-        temperatura: [36.6, 0.3],   // verde
-        frecuencia:  [95, 10],      // AMARILLO alto (respuesta adrenérgica)
-        sistolica:   [110, 8],      // verde
-        diastolica:  [72, 6],       // verde
-        glucosa:     [48, 4],       // ROJO bajo (<54)
-        sueno:       [6, 1],        // AMARILLO bajo
-        animo:       [2, 0.5],      // AMARILLO bajo (síntomas neuroglucopénicos)
+        temperatura: [36.6, 0.3],
+        frecuencia: [95, 10],
+        sistolica: [110, 8],
+        diastolica: [72, 6],
+        glucosa: [48, 4],
+        sueno: [6, 1],
+        animo: [2, 0.5],
     },
 };
 
@@ -141,64 +137,88 @@ function formatearTiempo(segundos) {
     return `${min}:${String(seg).padStart(2, "0")}`;
 }
 
+function promedio(arr) {
+    const valoresValidos = arr.filter(
+        valor => valor !== null && Number.isFinite(valor)
+    );
+
+    if (valoresValidos.length === 0) {
+        return null;
+    }
+
+    return valoresValidos.reduce((a, b) => a + b, 0)
+        / valoresValidos.length;
+}
+
 // ===== 2. LEER =====
 
-function simularAstroskin(){
+function simularAstroskin() {
     const nombre = document.getElementById("escenario").value;
     const esc = ESCENARIOS[nombre];
 
     document.getElementById("temperatura").value = variar(esc.temperatura[0], esc.temperatura[1]).toFixed(1);
-    document.getElementById("frecuencia").value  = Math.round(variar(esc.frecuencia[0], esc.frecuencia[1]));
-    document.getElementById("sistolica").value   = Math.round(variar(esc.sistolica[0], esc.sistolica[1]));
-    document.getElementById("diastolica").value  = Math.round(variar(esc.diastolica[0], esc.diastolica[1]));
-    document.getElementById("glucosa").value     = Math.round(variar(esc.glucosa[0], esc.glucosa[1]));
-    document.getElementById("sueno").value       = Math.round(variar(esc.sueno[0], esc.sueno[1]) * 2) / 2;
-    document.getElementById("animo").value       = Math.round(variar(esc.animo[0], esc.animo[1]));
+    document.getElementById("frecuencia").value = Math.round(variar(esc.frecuencia[0], esc.frecuencia[1]));
+    document.getElementById("sistolica").value = Math.round(variar(esc.sistolica[0], esc.sistolica[1]));
+    document.getElementById("diastolica").value = Math.round(variar(esc.diastolica[0], esc.diastolica[1]));
+    document.getElementById("glucosa").value = Math.round(variar(esc.glucosa[0], esc.glucosa[1]));
+    document.getElementById("sueno").value = Math.round(variar(esc.sueno[0], esc.sueno[1]) * 2) / 2;
+    document.getElementById("animo").value = Math.round(variar(esc.animo[0], esc.animo[1]));
 }
 
-function calcularEntorno(){
+function leerMediciones() {
+    return {
+        temperatura: leerValor("temperatura"),
+        frecuencia: leerValor("frecuencia"),
+        sistolica: leerValor("sistolica"),
+        diastolica: leerValor("diastolica"),
+        glucosa: leerValor("glucosa"),
+        sueno: leerValor("sueno"),
+        animo: leerValor("animo"),
+    };
+}
+
+function calcularEntorno() {
     const claveHabitat = document.getElementById("habitat").value;
-    const dia = Number (document.getElementById("dia-mision").value) || 1;
+    const dia = Number(document.getElementById("dia-mision").value) || 1;
 
-    let radiacionMSv = 0 ;
+    let radiacionMSv = 0;
 
-    if(claveHabitat === "iss"){
+    if (claveHabitat === "iss") {
         radiacionMSv = 0.35 * dia;
-    } else if (claveHabitat === "luna"){
+    } else if (claveHabitat === "luna") {
         radiacionMSv = 0.35 * dia;
-    } else if (claveHabitat === "transito"){
-        radiacionMSv = 1.8 *dia;
-    } else if (claveHabitat === "marte"){
+    } else if (claveHabitat === "transito") {
+        radiacionMSv = 1.8 * dia;
+    } else if (claveHabitat === "marte") {
         radiacionMSv = (1.8 * 180) + (0.64 * dia);
     }
 
     const porcentajeLimite = (radiacionMSv / 600) * 100;
 
     let perdidaOsea = null;
-    if(claveHabitat === "iss" || claveHabitat === "transito"){
+    if (claveHabitat === "iss" || claveHabitat === "transito") {
         const meses = dia / 30;
         perdidaOsea = [meses * 1, meses * 1.5];
     }
 
-    const gravedad = {iss: 0, transito: 0, luna: 0.16, marte: 0.38};
+    const gravedad = { iss: 0, transito: 0, luna: 0.16, marte: 0.38 };
 
-    return{
-        radiacionMSv:radiacionMSv,
-        porcentajeLimite:porcentajeLimite,
-        perdidaOsea:perdidaOsea,
-        gravedad:gravedad[claveHabitat],
+    return {
+        radiacionMSv: radiacionMSv,
+        porcentajeLimite: porcentajeLimite,
+        perdidaOsea: perdidaOsea,
+        gravedad: gravedad[claveHabitat],
         nombreHabitat: HABITATS[claveHabitat].nombre,
-        diaMision:dia,
+        diaMision: dia,
     };
 }
 
 function registrarLectura(mediciones, resultados, entorno) {
     HISTORIAL.push({
-        numero: HISTORIAL.length + 1,
-        tiempo: new Date().toLocaleTimeString(),
-        mediciones: Object.assign({}, mediciones),
-        resultados: Object.assign({}, resultados),
-        entorno: Object.assign({}, entorno),
+        diaMision: Number(document.getElementById("dia-mision").value),
+        mediciones: mediciones,
+        resultados: resultados,
+        entorno: entorno,
     });
 }
 
@@ -229,121 +249,205 @@ function detectarTendencias() {
     return alertas;
 }
 
-function graficarHistorial() {
-    const canvas = document.getElementById("grafica");
+
+function dibujarGrafico(idCanvas, dias, series) {
+    const canvas = document.getElementById(idCanvas);
     const ctx = canvas.getContext("2d");
+
     const ancho = canvas.width;
     const alto = canvas.height;
-    const margen = 50;
+
+    const margenIzquierdo = 50;
+    const margenDerecho = 25;
+    const margenSuperior = 35;
+    const margenInferior = 50;
+
+    const areaAncho = ancho - margenIzquierdo - margenDerecho;
+    const areaAlto = alto - margenSuperior - margenInferior;
 
     ctx.clearRect(0, 0, ancho, alto);
 
-    const series = [
-        { clave: "temperatura", color: "#e74c3c", min: 34, max: 41 },
-        { clave: "frecuencia",  color: "#3498db", min: 30, max: 140 },
-        { clave: "glucosa",     color: "#f39c12", min: 40, max: 260 },
-    ];
-
-    const n = HISTORIAL.length;
-    const pasoX = (ancho - margen * 2) / Math.max(n - 1, 1);
-
-    // fondo
+    // Fondo
     ctx.fillStyle = "#1a1a2e";
     ctx.fillRect(0, 0, ancho, alto);
 
-    // ejes
-    ctx.strokeStyle = "#444";
-    ctx.beginPath();
-    ctx.moveTo(margen, margen);
-    ctx.lineTo(margen, alto - margen);
-    ctx.lineTo(ancho - margen, alto - margen);
-    ctx.stroke();
-
-    // números de lectura en eje X
-    ctx.fillStyle = "#aaa";
-    ctx.font = "11px monospace";
-    ctx.textAlign = "center";
-    for (let i = 0; i < n; i++) {
-        const x = margen + i * pasoX;
-        ctx.fillText(HISTORIAL[i].numero, x, alto - margen + 15);
+    // Si no hay datos
+    if (dias.length === 0) {
+        ctx.fillStyle = "#aaa";
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No hay datos para mostrar", ancho / 2, alto / 2);
+        return;
     }
 
-    // dibujar cada serie
-    for (let s = 0; s < series.length; s++) {
-        const serie = series[s];
+    // Coordenadas X
+    const posicionX = i =>
+        margenIzquierdo +
+        (i / Math.max(dias.length - 1, 1)) * areaAncho;
+
+    // Ejes
+    ctx.strokeStyle = "#666";
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    ctx.moveTo(margenIzquierdo, margenSuperior);
+    ctx.lineTo(margenIzquierdo, alto - margenInferior);
+    ctx.lineTo(ancho - margenDerecho, alto - margenInferior);
+    ctx.stroke();
+
+    // Etiquetas de días
+    ctx.fillStyle = "#aaa";
+    ctx.font = "11px Arial";
+    ctx.textAlign = "center";
+
+    dias.forEach((dia, i) => {
+        const x = posicionX(i);
+
+        ctx.fillText(
+            "D" + dia,
+            x,
+            alto - margenInferior + 20
+        );
+    });
+
+    // Dibujar series
+    series.forEach(serie => {
+
         ctx.strokeStyle = serie.color;
+        ctx.fillStyle = serie.color;
         ctx.lineWidth = 2;
+
+        let iniciado = false;
+
         ctx.beginPath();
 
-        for (let i = 0; i < n; i++) {
-            const valor = HISTORIAL[i].mediciones[serie.clave];
-            if (valor === null) continue;
+        serie.datos.forEach((valor, i) => {
 
-            const x = margen + i * pasoX;
-            const y = alto - margen - ((valor - serie.min) / (serie.max - serie.min)) * (alto - margen * 2);
+            if (valor === null || !Number.isFinite(valor)) {
+                iniciado = false;
+                return;
+            }
 
-            if (i === 0) {
+            const x = posicionX(i);
+
+            const y = alto - margenInferior -
+                ((valor - serie.min) / (serie.max - serie.min))
+                * areaAlto;
+
+            // Comenzar una línea nueva
+            if (!iniciado) {
                 ctx.moveTo(x, y);
+                iniciado = true;
             } else {
                 ctx.lineTo(x, y);
             }
-        }
-        ctx.stroke();
 
-        // puntos
-        for (let i = 0; i < n; i++) {
-            const valor = HISTORIAL[i].mediciones[serie.clave];
-            if (valor === null) continue;
-
-            const x = margen + i * pasoX;
-            const y = alto - margen - ((valor - serie.min) / (serie.max - serie.min)) * (alto - margen * 2);
-
+            // Dibujar punto
             ctx.fillStyle = serie.color;
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, Math.PI * 2);
             ctx.fill();
-        }
-    }
 
-    // leyenda
-    ctx.font = "12px monospace";
-    for (let s = 0; s < series.length; s++) {
-        const lx = margen + s * 150;
-        ctx.fillStyle = series[s].color;
-        ctx.fillRect(lx, 8, 12, 12);
-        ctx.fillText(series[s].clave, lx + 16, 18);
-    }
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        });
+
+        // Dibujar línea
+        // Se dibuja por separado para evitar conexiones incorrectas.
+        let anterior = null;
+
+        ctx.beginPath();
+
+        serie.datos.forEach((valor, i) => {
+            if (valor === null || !Number.isFinite(valor)) {
+                anterior = null;
+                return;
+            }
+
+            const x = posicionX(i);
+            const y = alto - margenInferior -
+                ((valor - serie.min) / (serie.max - serie.min))
+                * areaAlto;
+
+            if (anterior === null) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+
+            anterior = { x, y };
+        });
+
+        ctx.stroke();
+    });
+
+    // Leyenda
+    ctx.font = "11px Arial";
+    ctx.textAlign = "left";
+
+    series.forEach((serie, i) => {
+        const columnas = 3;
+        const columna = i % columnas;
+        const fila = Math.floor(i / columnas);
+
+        const x = margenIzquierdo + columna * 210;
+        const y = 12 + fila * 17;
+
+        ctx.fillStyle = serie.color;
+        ctx.fillRect(x, y, 10, 10);
+
+        ctx.fillText(serie.clave, x + 15, y + 9);
+    });
 }
 
-function mostrarEntorno(entorno){
+
+function graficarHistorial() {
+    const porDia = {};
+    HISTORIAL.forEach(h => {
+        const dia = h.diaMision;
+        if (!porDia[dia]) porDia[dia] = { temp: [], freq: [], sist: [], diast: [], gluc: [], sueno: [], animo: [] };
+        porDia[dia].temp.push(h.mediciones.temperatura);
+        porDia[dia].freq.push(h.mediciones.frecuencia);
+        porDia[dia].sist.push(h.mediciones.sistolica);
+        porDia[dia].diast.push(h.mediciones.diastolica);
+        porDia[dia].gluc.push(h.mediciones.glucosa);
+        porDia[dia].sueno.push(h.mediciones.sueno);
+        porDia[dia].animo.push(h.mediciones.animo);
+    });
+
+    const dias = Object.keys(porDia).map(Number).sort((a, b) => a - b);
+    if (dias.length < 1) return;
+
+    // Gráfico 1: Signos vitales
+    dibujarGrafico("grafica-vitales", dias, [
+        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: dias.map(d => promedio(porDia[d].temp)) },
+        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: dias.map(d => promedio(porDia[d].freq)) },
+        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: dias.map(d => promedio(porDia[d].sist)) },
+        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: dias.map(d => promedio(porDia[d].diast)) },
+        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: dias.map(d => promedio(porDia[d].gluc)) },
+    ]);
+
+    // Gráfico 2: Bienestar
+    dibujarGrafico("grafica-bienestar", dias, [
+        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: dias.map(d => promedio(porDia[d].sueno)) },
+        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: dias.map(d => promedio(porDia[d].animo)) },
+    ]);
+}
+
+function mostrarEntorno(entorno) {
     const panel = document.getElementById("panel-entorno");
 
     let oseaTexto = "N/A (gravedad parcial)";
-    if(entorno.perdidaOsea !== null){
+    if (entorno.perdidaOsea !== null) {
         oseaTexto = entorno.perdidaOsea[0].toFixed(1) + "-" + entorno.perdidaOsea[1].toFixed(1) + "%";
     }
     panel.innerHTML = `
     <div class="tarjeta-entorno">
     <h3>Entorno - ${entorno.nombreHabitat} (dia ${entorno.diaMision})</h3>
-    <p>Gravedad: ${entorno.gravedad}g </p>
+    <p>Gravedad: ${entorno.gravedad}g</p>
     <p>Radiacion acumulada: ${entorno.radiacionMSv.toFixed(1)} mSv (${entorno.porcentajeLimite.toFixed(1)}% del limite de carrera)</p>
-    <p>Perdida osea estimada:${oseaTexto}</p>
+    <p>Perdida osea estimada: ${oseaTexto}</p>
     </div>`;
-}
-
-
-
-
-function leerMediciones() {
-    return {
-        temperatura: leerValor("temperatura"),
-        frecuencia: leerValor("frecuencia"),
-        sistolica: leerValor("sistolica"),
-        diastolica: leerValor("diastolica"),
-        glucosa: leerValor("glucosa"),
-        sueno: leerValor("sueno"),
-        animo: leerValor("animo"),
-    };
 }
 
 // ===== 3. PROCESAR =====
@@ -427,28 +531,29 @@ function mostrarResultados(mediciones, resultados, general) {
     contenedor.innerHTML = html;
 }
 
+// ===== 3b. ALERTAS A TIERRA =====
 
 let estadoAnterior = null;
 let cuentaAtras = null;
 
-function iniciarAvisoTierra(){
+function iniciarAvisoTierra() {
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
     let restante = Math.round(habitat.retrasoSeg * 2);
 
-    function pintar(){
-        caja.innerHTML =`<div class="aviso">
+    function pintar() {
+        caja.innerHTML = `<div class="aviso">
         <strong>AVISO ENVIADO A TIERRA</strong> (${habitat.nombre})
-        <p>Respuesta estimada en <strong>${formatearTiempo(restante)}</strong>
+        <p>Respuesta estimada en <strong>${formatearTiempo(restante)}</strong></p>
         <p>${habitat.protocolo}</p>
         </div>`;
     }
 
     clearInterval(cuentaAtras);
     pintar();
-    cuentaAtras = setInterval(function(){
+    cuentaAtras = setInterval(function () {
         restante--;
-        if(restante <= 0){
+        if (restante <= 0) {
             clearInterval(cuentaAtras);
             caja.innerHTML = `<div class="aviso">Respuesta de Tierra recibida (simulada).</div>`;
             return;
@@ -478,6 +583,8 @@ function avisarTierra(resultados) {
     }
 }
 
+// ===== 3c. FLUJO PRINCIPAL =====
+
 function procesar() {
     const mediciones = leerMediciones();
     const resultados = evaluarTodo(mediciones);
@@ -492,11 +599,7 @@ function procesar() {
     registrarLectura(mediciones, resultados, entorno);
     avisarTierra(resultados);
 
-    if (HISTORIAL.length >= 2) {
-        graficarHistorial();
-    }
 }
-
 
 // ===== 4. CONEXIONES =====
 
@@ -530,6 +633,14 @@ botonVivo.addEventListener("click", function () {
         temporizador = null;
         botonVivo.textContent = "Iniciar modo en vivo";
     }
+});
+
+document.getElementById("btn-graficar").addEventListener("click", function () {
+    if (HISTORIAL.length < 1) {
+        alert("No hay datos todavía. Registra al menos una lectura primero.");
+        return;
+    }
+    graficarHistorial();
 });
 
 document.getElementById("btn-asistente").addEventListener("click", function () {
