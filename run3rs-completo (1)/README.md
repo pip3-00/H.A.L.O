@@ -22,7 +22,7 @@ En misiones largas, la radiación espacial, el aislamiento, la gravedad alterada
 
 ## Tecnología
 
-- **Python (lógica):** `api/evaluar.py` calcula el semáforo de cada indicador, el estado general y el entorno (radiación, pérdida ósea, gravedad). `api/nova.py` es el proxy hacia Gemini (`gemini-flash-lite-latest`, límite de 8 s) con respaldo por reglas.
+- **Python (lógica):** `api/evaluar.py` calcula el semáforo de cada indicador, el estado general y el entorno (radiación, pérdida ósea, gravedad). `api/voz.py` genera la voz de Nova con Gemini TTS (voz «Kore»); si no está disponible se usa la voz del navegador. `api/nova.py` es el proxy hacia Gemini (`gemini-flash-lite-latest`, límite de 8 s) con respaldo por reglas.
 - **JavaScript (interfaz):** `public/app.js` pinta resultados, gráficos en `canvas`, voz (Web Speech API), el reloj y la línea base personal. Si el servidor no responde, usa una copia local del mismo cálculo para que la app no se detenga.
 
 ## Estructura
@@ -35,6 +35,7 @@ public/
 api/
   evaluar.py         # lógica de salud (Python)
   nova.py            # asistente Nova: proxy a Gemini (Python)
+  voz.py             # voz de Nova: Gemini TTS -> WAV (Python)
   asistente.js       # versión anterior del proxy, queda de respaldo
 servidor_local.py    # para probar en tu computadora
 vercel.json          # { "outputDirectory": "public" }
