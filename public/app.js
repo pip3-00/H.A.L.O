@@ -396,18 +396,33 @@ function registrarLectura(mediciones, resultados, entorno) {
     });
 }
 
-// Un indicador alterado (amarillo o rojo) en las últimas 3 lecturas SEGUIDAS
-// cuenta como tendencia y justifica avisar a Tierra. Una sola lectura amarilla no.
+// Indicadores que el wearable da UNA vez al día: repetir el mismo valor en cada lectura no es
+// "otra lectura alterada", así que para ellos se cuentan días seguidos y no lecturas seguidas.
+function indicadoresDiarios() {
+    return ["sueno"].concat(wearableActual().presionDiaria ? ["sistolica", "diastolica"] : []);
+}
+
+// Aviso por tendencia: un indicador en amarillo (o peor) en las últimas 3 lecturas SEGUIDAS
+// (o 3 días seguidos si se mide una vez al día). Devuelve [{ clave, diario }]
 function detectarTendencias() {
-    const ultimas = HISTORIAL.slice(-UMBRAL_TENDENCIA);
-    if (ultimas.length < UMBRAL_TENDENCIA) return [];
+    const diarios = indicadoresDiarios();
     const alertas = [];
     for (const clave in INDICADORES) {
-        const todasMalas = ultimas.every(function (h) {
-            const r = h.resultados[clave];
-            return r && (r.estado === "rojo" || r.estado === "amarillo");
-        });
-        if (todasMalas) alertas.push(clave);
+        let serie;
+        if (diarios.includes(clave)) {
+            const porDia = new Map();      // día de misión -> último resultado de ese día
+            HISTORIAL.forEach(function (h) {
+                const r = h.resultados[clave];
+                if (r && r.estado !== "sin-dato") porDia.set(h.diaMision, r);
+            });
+            serie = Array.from(porDia.values()).slice(-UMBRAL_TENDENCIA);
+        } else {
+            serie = HISTORIAL.slice(-UMBRAL_TENDENCIA).map(h => h.resultados[clave]);
+        }
+        const alterado = r => r && (r.estado === "amarillo" || r.estado === "rojo");
+        if (serie.length === UMBRAL_TENDENCIA && serie.every(alterado)) {
+            alertas.push({ clave: clave, diario: diarios.includes(clave) });
+        }
     }
     return alertas;
 }
@@ -1167,16 +1182,18 @@ function iniciarAvisoTierra(motivos) {
     }, 1000);
 }
 
-const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
-
+// Reglas del aviso a Tierra:
+//  - ROJO en cualquier indicador: aviso inmediato.
+//  - AMARILLO: solo si se repite 3 lecturas seguidas (3 días seguidos si se mide una vez al día).
+//    Un amarillo suelto NO se avisa: el astronauta lo atiende con la recomendación en pantalla.
 function avisarTierra(resultados) {
-    // Rojo en un indicador agudo: aviso inmediato
-    const agudos = AGUDOS.filter(k => resultados[k] && resultados[k].estado === "rojo");
-    // Cualquier indicador alterado 3 lecturas seguidas: aviso por tendencia
-    const tendencias = detectarTendencias().filter(k => !agudos.includes(k));
+    const rojos = Object.keys(INDICADORES).filter(k => resultados[k] && resultados[k].estado === "rojo");
+    const tendencias = detectarTendencias().filter(t => !rojos.includes(t.clave));
 
-    const motivos = agudos.map(k => tr("{nombre} en alerta", { nombre: NOMBRES[k].nombre.toLowerCase() }))
-        .concat(tendencias.map(k => tr("{nombre} alterado/a en {n} lecturas seguidas", { nombre: NOMBRES[k].nombre.toLowerCase(), n: UMBRAL_TENDENCIA })));
+    const motivos = rojos.map(k => tr("{nombre} en alerta", { nombre: NOMBRES[k].nombre.toLowerCase() }))
+        .concat(tendencias.map(t => t.diario
+            ? tr("{nombre} alterado/a {n} días seguidos", { nombre: NOMBRES[t.clave].nombre.toLowerCase(), n: UMBRAL_TENDENCIA })
+            : tr("{nombre} alterado/a en {n} lecturas seguidas", { nombre: NOMBRES[t.clave].nombre.toLowerCase(), n: UMBRAL_TENDENCIA })));
 
     if (motivos.length > 0 && estadoAnterior !== "alerta-enviada") {
         iniciarAvisoTierra(motivos);
@@ -1203,6 +1220,9 @@ function puntajeVoz(v) {
     if (IDIOMA === "es" && /es-(mx|us|419|do)/i.test(v.lang)) p += 10;
     if (IDIOMA === "en" && /en-us/i.test(v.lang)) p += 10;
     if (v.localService === false) p += 5;
+    // HERMES es masculino: se prefieren voces de hombre en el respaldo del navegador
+    if (/jorge|pablo|diego|ra[uú]l|juan|carlos|enrique|alvaro|álvaro|gonzalo|tom[aá]s|andr[eé]s|guy|david|mark|daniel|james|ryan|male|hombre/.test(n)) p += 30;
+    if (/helena|laura|sabina|paulina|monica|mónica|elvira|dalia|lucia|lucía|ximena|zira|aria|jenny|samantha|female|mujer/.test(n)) p -= 15;
     return p;
 }
 
@@ -1643,18 +1663,49 @@ const botonVivo = document.getElementById("btn-vivo");
 
 let lecturasEnVivo = 0;
 
+// ===== Incidencias automáticas =====
+// Con el wearable conectado, la 2.ª lectura trae una alteración y después llega una nueva cada minuto
+// (6 lecturas de 10 s). Cada incidencia dura 3 lecturas (30 s), así alcanza a generar el aviso a Tierra,
+// y luego los datos vuelven a la normalidad hasta la siguiente.
+const INCIDENCIAS = ["fiebre", "hipotension", "hipoglucemia"];
+const LECTURAS_POR_MINUTO = Math.round(60000 / INTERVALO_MS);
+const DURACION_INCIDENCIA = 3;
+
+function incidenciasAutomaticas() {
+    const c = document.getElementById("incidencias-auto");
+    return !c || c.checked;
+}
+
+function escenarioDeLectura(n) {
+    if (n < 2) return "normal";
+    const k = n - 2;
+    if (k % LECTURAS_POR_MINUTO >= DURACION_INCIDENCIA) return "normal";
+    // Solo incidencias que el wearable elegido puede detectar (la hipoglucemia necesita el parche de glucosa)
+    const posibles = INCIDENCIAS.filter(e => e !== "hipoglucemia" || wearableMide("glucosa"));
+    return posibles[Math.floor(k / LECTURAS_POR_MINUTO) % posibles.length];
+}
+
 function cicloEnVivo() {
     if (lecturasEnVivo > 0 && lecturasEnVivo % 6 === 0) {   // 6 lecturas x 10 s = 1 día por minuto
         const campoDia = document.getElementById("dia-mision");
         campoDia.value = Number(campoDia.value) + 1;
     }
     lecturasEnVivo++;
+    if (incidenciasAutomaticas()) {
+        const selector = document.getElementById("escenario");
+        const escenario = escenarioDeLectura(lecturasEnVivo);
+        if (selector.value !== escenario) {
+            selector.value = escenario;
+            animoManual = false;      // el ánimo acompaña a la incidencia
+        }
+    }
     simularAstroskin();
     procesar();
 }
 
 botonVivo.addEventListener("click", function () {
     if (temporizador === null) {
+        lecturasEnVivo = 0;           // la cuenta de incidencias empieza de nuevo al conectar
         cicloEnVivo();
         temporizador = setInterval(cicloEnVivo, INTERVALO_MS);
         botonVivo.textContent = tr("Desconectar wearable");
@@ -1694,7 +1745,7 @@ function respuestaCharla(texto) {
     const t2 = t.replace(/^(?:oye |hola |hey |ok |okey )?(?:hermes |ermes |hermez )?/, "").replace(/(?: hermes| ermes| hermez)$/, "").trim();
     if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|hi|hello|good morning|good afternoon|good evening)$/.test(t) ||
         /^(hola|buenas|hey|hi|hello)( hermes| ermes| hermez)$/.test(t)) return tr("¡Hola! Aquí estoy. ¿En qué te ayudo?");
-    if (/^(y )?(tu )?(hola )?(como estas|como esta|como estas tu|como te encuentras|que tal|que tal estas|como te va|como andas|como te sientes|como amaneciste|como has estado|how are you|how are you doing|how s it going)( tu| hoy)?$/.test(t2)) return tr("Estoy bien, gracias por preguntar, y lista para ayudarte. ¿Quieres que revise cómo estás tú?");
+    if (/^(y )?(tu )?(hola )?(como estas|como esta|como estas tu|como te encuentras|que tal|que tal estas|como te va|como andas|como te sientes|como amaneciste|como has estado|how are you|how are you doing|how s it going)( tu| hoy)?$/.test(t2)) return tr("Estoy bien, gracias por preguntar, y listo para ayudarte. ¿Quieres que revise cómo estás tú?");
     if (/^(quien eres|que eres|como te llamas|cual es tu nombre|que significa hermes|que significa tu nombre|que quiere decir hermes|who are you|what are you|what s your name|what is your name)( tu)?$/.test(t2)) return tr("Soy Hermes, siglas de Health Evaluation and Remote Medical Expert System: tu sistema de evaluación de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.");
     if (/^(que puedes hacer|en que me ayudas|en que me puedes ayudar|que sabes hacer|ayuda|ayudame|what can you do|help me|help)$/.test(t2)) return tr("Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.");
     return null;
@@ -1706,9 +1757,24 @@ function preguntaSobreSalud(texto) {
     return /\b(como estoy|estoy bien|mi |mis |me siento|tengo|parametros|indicadores|signos|temperatura|frecuencia|presion|glucosa|sueno|animo|fiebre|pulso|how am i|my |i feel|vitals|temperature|heart rate|pressure|glucose|sleep|mood|fever|pulse)\b/.test(t);
 }
 
+// Chistes de respaldo cuando no hay conexión con Gemini (con conexión, Gemini inventa otros)
+const CHISTES = IDIOMA === "en" ? [
+    "Why don't astronauts use hourglasses? In microgravity the sand just can't make up its mind.",
+    "I tried to tell you a joke about gravity, but it didn't land.",
+    "How do astronauts throw a party? They planet.",
+] : [
+    "¿Por qué los astronautas no usan reloj de arena? Porque en microgravedad la arena no se decide a bajar.",
+    "Intenté contarte un chiste sobre la gravedad, pero no lograba que te cayera bien.",
+    "En la Estación Espacial la comida no tiene mucho sabor, pero nadie se queja: todos dicen que está fuera de este mundo.",
+    "¿Qué le dijo la Luna al Sol? Tanto brillar y no te dejan salir de noche.",
+];
+
 function respuestaLocalCliente(pregunta) {
     const charla = respuestaCharla(pregunta);
     if (charla) return charla;
+    if (/chiste|gracioso|hazme re[ií]r|joke|funny|make me laugh/i.test(String(pregunta || ""))) {
+        return CHISTES[Math.floor(Math.random() * CHISTES.length)];
+    }
     if (!hayLecturas()) {
         return preguntaSobreSalud(pregunta) || !pregunta
             ? SIN_LECTURAS
@@ -2472,6 +2538,8 @@ const LOGROS = [
 traducirDatos(TAREAS, "TAREAS");
 traducirDatos(LOGROS, "LOGROS");
 
+const PUNTOS_POR_NIVEL = 200;
+
 const juego = (function cargar() {
     const base = { puntos: 0, racha: 0, ultimoDia: null, dia: null, hechas: {}, mediciones: 0, diasCompletos: 0, alertasAtendidas: 0, logros: {}, alertaPendiente: false };
     try { return Object.assign(base, JSON.parse(localStorage.getItem("run3rs-juego") || "{}")); } catch (_) { return base; }
@@ -2505,17 +2573,13 @@ function completarTarea(id) {
     pintarJuego();
 }
 
+let ultimoLogro = null;      // se muestra unos segundos en la tarjeta aunque se vuelva a pintar
+
 function revisarLogros() {
     LOGROS.forEach(function (l) {
         if (!juego.logros[l.id] && l.cumple(juego)) {
             juego.logros[l.id] = true;
-            const aviso = document.getElementById("juego-aviso");
-            if (aviso) {
-                aviso.textContent = tr("🏅 Logro desbloqueado: ") + l.texto;
-                aviso.hidden = false;
-                clearTimeout(revisarLogros.t);
-                revisarLogros.t = setTimeout(() => { aviso.hidden = true; }, 5000);
-            }
+            ultimoLogro = { texto: l.texto, hasta: Date.now() + 6000 };
         }
     });
 }
@@ -2550,26 +2614,44 @@ function pintarJuego() {
     const caja = document.getElementById("panel-juego");
     if (!caja) return;
     prepararDia();
-    const hechas = TAREAS.filter(t => juego.hechas[t.id]).length;
-    caja.innerHTML = `<div class="tarjeta-entorno juego">
+    const hechas = TAREAS.filter(t => juego.hechas[t.id]);
+    const puntosHoy = hechas.reduce((suma, t) => suma + t.puntos, 0);
+    const puntosPosibles = TAREAS.reduce((suma, t) => suma + t.puntos, 0);
+    const avance = Math.round(puntosHoy / puntosPosibles * 100);
+    const nivel = Math.floor(juego.puntos / PUNTOS_POR_NIVEL) + 1;
+    const ganados = LOGROS.filter(l => juego.logros[l.id]).length;
+    caja.innerHTML = `<div class="tarjeta-entorno juego h-100">
         <div class="juego-cabecera">
             <h3>${tr("Misión salud")}</h3>
-            <div class="juego-dia"><span>${tr("Día de misión")}</span><b>${juego.dia}</b></div>
+            <span class="juego-nivel" title="${tr("Cada {n} puntos subes de nivel", { n: PUNTOS_POR_NIVEL })}">${tr("Nivel {n}", { n: nivel })}</span>
         </div>
-        <p class="juego-progreso">${tr("{n} de {total} tareas de hoy", { n: hechas, total: TAREAS.length })}</p>
+        <div class="juego-resumen juego-resumen-2">
+            <div><b>${juego.puntos}</b><span>${tr("Puntos totales")}</span></div>
+            <div><b>🔥 ${juego.racha}</b><span>${tr("Días seguidos")}</span></div>
+        </div>
+        <p class="juego-progreso">${tr("Hoy: {p} de {max} puntos · {n} de {total} tareas", { p: puntosHoy, max: puntosPosibles, n: hechas.length, total: TAREAS.length })}</p>
+        <div class="juego-barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${avance}"><i style="width:${avance}%"></i></div>
         <ul class="juego-tareas">
             ${TAREAS.map(t => `<li class="${juego.hechas[t.id] ? "hecha" : ""}">
                 ${t.auto
-                    ? `<span class="marca">${juego.hechas[t.id] ? "✔" : "○"}</span>`
-                    : `<button type="button" data-tarea="${t.id}" ${juego.hechas[t.id] ? "disabled" : ""}>${juego.hechas[t.id] ? "✔" : tr("Hecho")}</button>`}
-                <span>${t.texto}</span></li>`).join("")}
+                    ? `<span class="marca" title="${tr("Se marca sola")}">${juego.hechas[t.id] ? "✔" : "○"}</span>`
+                    : `<button type="button" class="btn btn-contorno btn-sm" data-tarea="${t.id}" ${juego.hechas[t.id] ? "disabled" : ""}>${juego.hechas[t.id] ? "✔" : tr("Hecho")}</button>`}
+                <span>${t.texto}</span><em>+${t.puntos}</em></li>`).join("")}
         </ul>
+        <p class="juego-subtitulo">${tr("Logros ({n} de {total})", { n: ganados, total: LOGROS.length })}</p>
         <div class="juego-logros">
             ${LOGROS.map(l => `<span class="${juego.logros[l.id] ? "ganado" : ""}" title="${l.texto}">🏅 ${l.texto}</span>`).join("")}
         </div>
         <p id="juego-aviso" hidden></p>
     </div>`;
     caja.querySelectorAll("button[data-tarea]").forEach(b => b.addEventListener("click", () => completarTarea(b.dataset.tarea)));
+    if (ultimoLogro && Date.now() < ultimoLogro.hasta) {
+        const aviso = document.getElementById("juego-aviso");
+        aviso.textContent = tr("🏅 Logro desbloqueado: ") + ultimoLogro.texto;
+        aviso.hidden = false;
+        clearTimeout(pintarJuego.t);
+        pintarJuego.t = setTimeout(() => { aviso.hidden = true; }, ultimoLogro.hasta - Date.now());
+    }
 }
 
 pintarJuego();

@@ -12,7 +12,9 @@ import wave
 from http.server import BaseHTTPRequestHandler
 
 MODELO_VOZ = "gemini-2.5-flash-preview-tts"
-VOZ = "Kore"          # voz prediseñada de Gemini (femenina, clara)
+# Voz prediseñada de Gemini para HERMES: "Charon" es masculina, calmada e informativa.
+# Otras masculinas: "Orus" (firme), "Puck" (alegre), "Achird" (amigable). Se puede cambiar con HERMES_VOZ.
+VOZ = os.environ.get("HERMES_VOZ", "Charon")
 TIMEOUT_S = 12
 MAX_CARACTERES = 600
 

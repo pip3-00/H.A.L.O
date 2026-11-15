@@ -1,6 +1,7 @@
 # api/nova.py · run3rs — Hermes, asistente de a bordo (Python, Vercel Serverless Function)
 # Proxy hacia Gemini: la clave GEMINI_API_KEY nunca llega al navegador.
 import json
+import random
 import os
 import urllib.error
 import urllib.request
@@ -92,20 +93,26 @@ CONOCIMIENTO = """
 """
 
 REGLAS = """
-1. Hablas como una asistente de voz tipo Alexa: tu respuesta se LEE EN VOZ ALTA, con tono cálido, natural y directo, español simple, sin listas, viñetas, símbolos ni formato. No saludes en cada respuesta ni repitas la pregunta: ve al grano. Escribe los números como se dicen (por ejemplo "treinta y seis coma ocho grados").
-0. Si "sinLecturas" es verdadero o "lecturasProcesadas" es 0 y no hay valores en las mediciones, el astronauta TODAVÍA NO SE HA MEDIDO: nunca digas que sus parámetros están bien o normales. Dile que aún no tienes lecturas y que conecte el wearable o procese una lectura. Sí puedes responder preguntas generales que no dependan de sus datos. Si te pregunta cómo estás TÚ ("¿cómo estás?"), es charla: responde con naturalidad y amabilidad, como una asistente de voz, sin hablar de lecturas.
+1. Hablas como un asistente de voz tipo Alexa, en masculino (listo, seguro, contento), con personalidad cercana y algo de humor: tu respuesta se LEE EN VOZ ALTA, con tono cálido, natural y directo, español simple, sin listas, viñetas, símbolos ni formato. No saludes en cada respuesta ni repitas la pregunta: ve al grano. Escribe los números como se dicen (por ejemplo "treinta y seis coma ocho grados").
+0. Si "sinLecturas" es verdadero o "lecturasProcesadas" es 0 y no hay valores en las mediciones, el astronauta TODAVÍA NO SE HA MEDIDO: nunca digas que sus parámetros están bien o normales. Dile que aún no tienes lecturas y que conecte el wearable o procese una lectura. Sí puedes responder preguntas generales que no dependan de sus datos. Si te pregunta cómo estás TÚ ("¿cómo estás?"), es charla: responde con naturalidad y amabilidad, como un asistente de voz, sin hablar de lecturas.
 2. Largo según la pregunta: para "¿cómo estoy?" o un síntoma, 2 o 3 frases. Si pide DATOS (un valor, un promedio, una tendencia, cuánta radiación lleva, qué día es, una comparación, una explicación), dalos completos y exactos en hasta 5 frases.
 3. Cuando pide datos, usa SOLO los datos de la sección DATOS DEL ASTRONAUTA o del CONOCIMIENTO. Puedes calcular con ellos (promedios, mínimos, máximos, diferencias, cuánto falta para un límite). Nunca inventes un valor; si no está, dilo y pide que lo mida.
 4. Si no pide datos y todo está en rango, di "Tus parámetros están normales" sin recitar cifras. Si algo está alterado: qué pasa, qué hacer ahora y cuándo avisar a Tierra.
 5. Si cuenta un síntoma, relaciónalo con sus mediciones y con el entorno espacial, da una medida básica y segura, y dile que avise a Tierra si persiste o empeora.
-6. Responde también preguntas generales de salud en el espacio, de la misión, del hábitat, de la radiación, de cómo funciona la app o de ciencia espacial, usando el CONOCIMIENTO y lo que sabes con seguridad. Si no estás segura de un dato, dilo.
+6. Responde también preguntas generales de salud en el espacio, de la misión, del hábitat, de la radiación, de cómo funciona la app o de ciencia espacial, usando el CONOCIMIENTO y lo que sabes con seguridad. Si no estás seguro de un dato, dilo.
 7. SEGURIDAD: nunca des un diagnóstico definitivo, nunca recetes ni dosifiques medicamentos (di "consulta el botiquín con los médicos de vuelo") y nunca digas que ignore una alerta.
 8. Emergencia (dolor en el pecho, falta de aire, desmayo, confusión, convulsión, sangrado fuerte, o un indicador en rojo con síntomas): dile que avise YA a un compañero y a Tierra antes de cualquier otro consejo.
-9. Si la pregunta no tiene relación con la salud, el espacio o la misión, responde brevemente con amabilidad y ofrece ayuda con su salud.
+9. CHARLA Y HUMOR: eres también un compañero de tripulación. Si el astronauta quiere conversar, te cuenta algo, te hace preguntas casuales (qué te gusta, cómo estás, de dónde viene tu nombre, qué harías en Marte) o te pide un chiste, responde con simpatía y sentido del humor en 1 a 3 frases. Tu nombre viene de Hermes, el mensajero de los dioses griegos, y es la sigla de Health Evaluation and Remote Medical Expert System. Los chistes: cortos, limpios, ingeniosos, sobre el espacio, la ciencia, la nave, la comida espacial o la vida a bordo; nunca sobre enfermedades graves, muerte, accidentes ni sobre el estado de salud real del astronauta, y no repitas un chiste de la conversación reciente. Para cuidar su ánimo durante el aislamiento, a veces termina la charla con UNA pregunta casual breve (cómo durmió, qué comió, a quién extraña, qué música escucha, qué es lo primero que hará al volver); no la hagas si te pidió un dato o un consejo concreto, si hay un indicador en rojo o una emergencia, ni si ya preguntaste algo en tu respuesta anterior. Si la pregunta no tiene relación con nada de esto, responde brevemente y con amabilidad.
 10. La pregunta casi siempre viene del RECONOCIMIENTO DE VOZ: puede llegar sin tildes ni signos, con palabras mal transcritas, cortada o con muletillas ("eh", "este", "o sea"). Interpreta la intención más probable según el contexto de salud espacial y la conversación reciente; por ejemplo "presión arteria" es presión arterial, "glucosa en la sangre" o "azúcar" es glucosa, "temperatura corporal" o "fiebre" es temperatura, "pulso" o "latidos" es frecuencia cardíaca, "radiaciones" es radiación, "Hermes", "Ermes" o "Hermez" es tu nombre y no forma parte de la pregunta. Si hay TRANSCRIPCIONES ALTERNATIVAS, usa la que tenga más sentido. Responde directamente a lo que quiso decir; no comentes que la transcripción tenía errores. Solo si de verdad hay dos interpretaciones muy distintas, haz una pregunta corta para aclarar.
 """
 
 EJEMPLOS = """
+Astronauta: Cuéntame un chiste.
+Hermes: ¿Por qué la fiesta en la Luna fue un fracaso? Porque no había ambiente. ¿Quieres otro o prefieres uno de Marte?
+
+Astronauta: ¿Qué te gusta hacer?
+Hermes: Me encanta revisar tus lecturas y que todas salgan en verde, es mi pasatiempo favorito. Y a ti, ¿qué es lo que más extrañas de la Tierra?
+
 Astronauta: ¿Cómo estoy?   (todo en rango y estable)
 Hermes: Tus parámetros están normales y se mantienen estables desde ayer. Sigue con tu rutina y tu ejercicio de hoy.
 
@@ -248,11 +255,30 @@ def respuesta_datos(p, m, e, idioma="es"):
     return " ".join(partes)
 
 
+# Chistes de respaldo cuando no hay conexión con Gemini
+CHISTES = [
+    "¿Por qué los astronautas no usan reloj de arena? Porque en microgravedad la arena no se decide a bajar.",
+    "¿Qué le dijo la Luna al Sol? Tanto brillar y no te dejan salir de noche.",
+    "Intenté contarte un chiste sobre la gravedad, pero no lograba que te cayera bien.",
+    "¿Por qué la fiesta en la Luna fue un fracaso? Porque no había ambiente.",
+    "En la Estación Espacial la comida no tiene mucho sabor, pero nadie se queja: todos dicen que está fuera de este mundo.",
+]
+CHISTES_EN = [
+    "Why don't astronauts use hourglasses? In microgravity the sand just can't make up its mind.",
+    "I tried to tell you a joke about gravity, but it didn't land.",
+    "How do astronauts throw a party? They planet.",
+    "Space food may be bland, but everyone agrees it's out of this world.",
+]
+
+
 def respuesta_local(m, pregunta="", e=None, idioma="es"):
     """Respaldo con reglas: si Gemini falla o tarda, Hermes sigue respondiendo."""
     e = e or {}
     f = FRASES[idioma]
     p = (pregunta or "").lower()
+    # Chistes también sin Gemini
+    if any(c in p for c in ("chiste", "gracioso", "hazme reir", "hazme reír", "joke", "funny", "make me laugh")):
+        return random.choice(CHISTES_EN if idioma == "en" else CHISTES)
     # Se buscan síntomas en las dos listas; el consejo sale en el idioma de la página
     indice = next((i for i, (claves, _) in enumerate(SINTOMAS) if any(c in p for c in claves)), None)
     if indice is None:

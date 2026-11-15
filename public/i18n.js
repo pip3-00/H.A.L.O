@@ -54,6 +54,7 @@ const EN_TEXTOS = {
     "Secciones": "Sections",
     "Panel": "Dashboard",
     "Gráficos": "Charts",
+    "Incidencias automáticas: en la 2.ª lectura y luego una cada minuto": "Automatic incidents: on the 2nd reading and then one every minute",
     "Temperatura de la piel": "Skin temperature",
     "Presión arterial": "Blood pressure",
     "Glucosa (parche aparte)": "Glucose (separate patch)",
@@ -223,6 +224,7 @@ const EN_TEXTOS = {
     "Respuesta de Tierra recibida (simulada).": "Earth response received (simulated).",
     "{nombre} en alerta": "{nombre} on alert",
     "{nombre} alterado/a en {n} lecturas seguidas": "{nombre} out of range in {n} consecutive readings",
+    "{nombre} alterado/a {n} días seguidos": "{nombre} out of range {n} days in a row",
     "Hermes (alerta automática): ": "Hermes (automatic alert): ",
     "Hay más indicadores alterados, revisa el panel.": "More indicators are out of range, check the dashboard.",
 
@@ -242,7 +244,7 @@ const EN_TEXTOS = {
     // --- Hermes (texto) ---
     "Todavía no tengo lecturas tuyas, así que no puedo decirte cómo estás. Conecta el wearable o procesa una lectura y te respondo.": "I don't have any readings from you yet, so I can't tell you how you are. Connect the wearable or process a reading and I'll answer.",
     "¡Hola! Aquí estoy. ¿En qué te ayudo?": "Hi! I'm here. How can I help?",
-    "Estoy bien, gracias por preguntar, y lista para ayudarte. ¿Quieres que revise cómo estás tú?": "I'm good, thanks for asking, and ready to help. Do you want me to check how you are?",
+    "Estoy bien, gracias por preguntar, y listo para ayudarte. ¿Quieres que revise cómo estás tú?": "I'm good, thanks for asking, and ready to help. Do you want me to check how you are?",
     "Soy Hermes, siglas de Health Evaluation and Remote Medical Expert System: tu sistema de evaluación de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.": "I'm HERMES, short for Health Evaluation and Remote Medical Expert System: your onboard health evaluation system. I check your readings, let you know if something changes and tell you what to do.",
     "Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.": "I can tell you how your indicators are, explain an alert, tell you how much radiation you've received or how long until Earth responds, and switch wearables or start the simulation.",
     "Ahora mismo no tengo conexión con mi asistente en línea, así que solo puedo responder sobre tus lecturas y comandos básicos.": "Right now I can't reach my online assistant, so I can only answer about your readings and basic commands.",
@@ -299,6 +301,13 @@ const EN_TEXTOS = {
     // --- Misión salud ---
     "🏅 Logro desbloqueado: ": "🏅 Achievement unlocked: ",
     "Misión salud": "Health mission",
+    "Nivel {n}": "Level {n}",
+    "Cada {n} puntos subes de nivel": "Every {n} points you level up",
+    "Puntos totales": "Total points",
+    "Días seguidos": "Days in a row",
+    "Hoy: {p} de {max} puntos · {n} de {total} tareas": "Today: {p} of {max} points · {n} of {total} tasks",
+    "Se marca sola": "Checks itself",
+    "Logros ({n} de {total})": "Achievements ({n} of {total})",
     "{n} de {total} tareas de hoy": "{n} of {total} tasks today",
     "Hecho": "Done",
 };

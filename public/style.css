@@ -459,3 +459,13 @@ button.ajustes-cerrar { padding: .25rem .6rem; line-height: 1; }
 .cgm-check { display: flex; align-items: center; gap: .45rem; margin-top: .45rem; font-size: .8rem; color: var(--tenue); cursor: pointer; font-weight: 500; }
 .cgm-check input { width: auto; accent-color: var(--acento); }
 .campo.no-medido label.cgm-check { text-decoration: none; opacity: 1; }
+
+/* Misión salud (gamificación) en el Panel */
+.juego-resumen-2 { grid-template-columns: repeat(2, 1fr); }
+.juego-resumen-2 div:nth-child(2) span { height: auto; background: none; margin-top: 0; overflow: visible; border-radius: 0; }
+.juego-nivel { padding: .25rem .7rem; border-radius: 999px; font-size: .78rem; font-weight: 700; color: #04140d; background: var(--acento); white-space: nowrap; }
+.juego-barra { height: 8px; border-radius: 999px; background: var(--borde); overflow: hidden; margin: -.3rem 0 .8rem; }
+.juego-barra i { display: block; height: 100%; background: var(--acento); border-radius: 999px; transition: width .4s ease; }
+.juego-subtitulo { margin: .2rem 0 .4rem; font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--tenue); }
+.juego-tareas li em { color: var(--acento); font-weight: 600; }
+.juego-tareas li.hecha em { color: var(--tenue); }
