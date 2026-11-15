@@ -1,7 +1,7 @@
 # servidor_local.py · run3rs — servidor para probar en tu computadora (en lugar de Live Server).
 # Sirve la carpeta public/ y ejecuta las funciones Python de api/ igual que en Vercel.
 # Uso:  python servidor_local.py      y abre  http://localhost:8000
-# Para que Nova use Gemini:  define la variable de entorno GEMINI_API_KEY antes de ejecutarlo.
+# Para que Hermes use Gemini:  define la variable de entorno GEMINI_API_KEY antes de ejecutarlo.
 import importlib.util
 import json
 import os

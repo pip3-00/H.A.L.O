@@ -17,12 +17,8 @@
         <div class="logo d-flex align-items-center gap-2"><span class="logo-marca">✚</span><span>run3rs</span></div>
         <nav class="nav flex-column mt-4" aria-label="Secciones">
             <span class="nav-titulo">General</span>
-            <a class="nav-link activo" href="#inicio">Panel</a>
-            <a class="nav-link" href="#seccion-asistente">Nova</a>
-            <a class="nav-link" href="#graficos">Gráficos</a>
-            <a class="nav-link" href="#tarjeta-wearable">Wearables</a>
-            <a class="nav-link" href="#seccion-formulario">Lecturas</a>
-            <a class="nav-link" href="#resultado">Indicadores</a>
+            <a class="nav-link activo" href="#vista-panel" data-ir="panel">Panel</a>
+            <a class="nav-link" href="#vista-graficos" data-ir="graficos">Gráficos</a>
             <button type="button" class="nav-link nav-ajustes" data-abrir-ajustes>⚙ Ajustes</button>
         </nav>
         <div class="lateral-nota mt-auto">
@@ -35,7 +31,7 @@
     <main id="inicio" class="contenido flex-grow-1">
         <header class="barra-superior d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <div class="d-flex align-items-center gap-3">
-                <span class="migas"><span class="text-body-secondary">‹ ›</span> Panel de salud</span>
+                <span class="migas"><span class="text-body-secondary">‹ ›</span> <span id="migas-titulo">Panel</span></span>
                 <span id="fuente-logica" data-fuente="espera">Lógica: en espera</span>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -45,12 +41,23 @@
             </div>
         </header>
 
-        <div class="saludo">
-            <h1>Hola, astronauta</h1>
-            <p id="saludo-sub">Resumen de tu salud en la misión</p>
-        </div>
+        <!-- Navegación en pantallas pequeñas (en escritorio está la barra lateral) -->
+        <nav class="nav-movil d-lg-none" aria-label="Secciones">
+            <a class="nav-pill activo" href="#vista-panel" data-ir="panel">Panel</a>
+            <a class="nav-pill" href="#vista-graficos" data-ir="graficos">Gráficos</a>
+        </nav>
 
-        <!-- KPIs -->
+        <!-- Los avisos a Tierra se ven en todas las pantallas -->
+        <div id="aviso-tierra"></div>
+
+        <!-- Cada opción del menú muestra solo su pantalla -->
+        <!-- Panel: resumen, wearable y HERMES -->
+        <section class="vista" data-vista="panel">
+            <div class="saludo">
+                <h1>Hola, astronauta</h1>
+                <p id="saludo-sub">Resumen de tu salud en la misión</p>
+            </div>
+            <!-- KPIs -->
         <div class="tarjeta-dash kpis mb-3">
             <div class="row g-0 row-cols-2 row-cols-md-4">
                 <div class="col kpi" id="kpi-general"><span class="kpi-icono">◉</span><span class="kpi-etq">Estado general</span><b class="kpi-valor">—</b><span class="kpi-pie">Sin lecturas</span></div>
@@ -59,12 +66,9 @@
                 <div class="col kpi" id="kpi-radiacion"><span class="kpi-icono">☢</span><span class="kpi-etq">Radiación acumulada</span><b class="kpi-valor">—</b><span class="kpi-pie">—</span></div>
             </div>
         </div>
-
-        <div id="aviso-tierra"></div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-xl-8">
-                <div class="tarjeta-dash mb-3" id="tarjeta-wearable">
+            <div class="row g-3 mb-3">
+                <div class="col-xl-8">
+                <div class="tarjeta-dash" id="tarjeta-wearable">
                     <div class="cab-dash"><div><h2>Wearable</h2><p>Elige el dispositivo que simula las lecturas</p></div>
                         <button type="button" id="btn-reloj" class="btn btn-contorno btn-sm">Ver simulación</button></div>
                     <div id="reloj-panel" hidden>
@@ -79,28 +83,21 @@
                 </div>
             </div>
                 </div>
-                <div class="tarjeta-dash" id="graficos">
-                    <div class="cab-dash"><div><h2>Corazón, presión y glucosa</h2><p>Últimas 30 lecturas · toca un indicador para ver su escala y rango normal</p></div></div>
-                    <canvas id="grafica-vitales" width="700" height="300"></canvas>
-                    <h2 class="mt-3">Temperatura y bienestar</h2>
-                    <canvas id="grafica-bienestar" width="700" height="230"></canvas>
-                    <button type="button" id="btn-graficar">Graficar datos recolectados</button>
                 </div>
-            </div>
-            <div class="col-xl-4">
+                <div class="col-xl-4">
                 <section id="seccion-asistente" class="tarjeta-dash">
     <div class="nova-cabecera">
-        <h3>Nova · asistente de a bordo</h3>
+        <h3 title="Health Evaluation and Remote Medical Expert System">HERMES · evaluación de salud a bordo</h3>
         <div class="juego-dia"><span>Día de misión</span><b id="nova-dia">1</b></div>
     </div>
 
     <div class="nova-escenario">
         <canvas id="nova-orbe" aria-hidden="true"></canvas>
-        <p id="nova-subtitulo" aria-live="polite">Di «Oye Nova» y háblale.</p>
+        <p id="nova-subtitulo" aria-live="polite">Di «Oye Hermes» y háblale.</p>
     </div>
 
     <div id="controles-voz">
-        <button type="button" id="btn-microfono" hidden>🎙 Activar a Nova</button>
+        <button type="button" id="btn-microfono" hidden>🎙 Activar a Hermes</button>
         <span id="estado-microfono" aria-live="polite"></span>
     </div>
 
@@ -121,17 +118,31 @@
         </div>
 
         <button type="submit" id="btn-asistente">
-            Consultar a Nova
+            Consultar a Hermes
         </button>
     </form>
 
     <div id="chat-ia" hidden></div>
 </section>
+                </div>
             </div>
-        </div>
+            <div class="row g-3">
+                <div class="col-md-6"><div id="panel-entorno" class="h-100"></div></div>
+                <div class="col-md-6"><div id="panel-base" class="h-100"></div></div>
+            </div>
+        </section>
 
-        <div class="row g-3 mb-3">
-            <div class="col-xl-4">
+        <!-- Gráficos: gráficas, lecturas e indicadores -->
+        <section class="vista" data-vista="graficos" hidden>
+            <div class="tarjeta-dash" id="graficos">
+                    <div class="cab-dash"><div><h2>Corazón, presión y glucosa</h2><p>Últimas 30 lecturas · toca un indicador para ver su escala y rango normal</p></div></div>
+                    <canvas id="grafica-vitales" width="700" height="300"></canvas>
+                    <h2 class="mt-3">Temperatura y bienestar</h2>
+                    <canvas id="grafica-bienestar" width="700" height="230"></canvas>
+                    <button type="button" id="btn-graficar">Graficar datos recolectados</button>
+                </div>
+            <div class="row g-3 mt-0">
+                <div class="col-xl-4">
                 <section id="seccion-formulario" class="tarjeta-dash h-100">
                     <div class="cab-dash"><div><h2>Lecturas del wearable</h2><p class="nota-wearable">En la misión llegan solas del wearable y del sensor de glucosa; aquí se simulan y puedes editarlas.</p></div></div>
                     <div class="campo">
@@ -173,6 +184,7 @@
                 <div class="campo">
                     <label for="glucosa">Glucosa (mg/dl)</label>
                     <input type="number" id="glucosa" step="1">
+                    <label class="cgm-check"><input type="checkbox" id="cgm" checked> Parche de glucosa conectado (aparte del wearable)</label>
                 </div>
                 <div class="campo">
                     <label for="sueno">Horas de sueño(ultimas 24 horas)</label>
@@ -184,15 +196,12 @@
                     <div id="animo-caras" role="radiogroup" aria-label="Estado de ánimo"></div>
                 </div>
             <button type="submit" id="btn-evaluar">Procesar lectura</button>
+            <p id="aviso-procesada" class="aviso-procesada" hidden>✓ Lectura procesada. <button type="button" class="btn btn-contorno btn-sm" data-bajar="seccion-resultados">Ver indicadores ↓</button></p>
             </form>
                 </section>
-            </div>
-            <div class="col-xl-8 d-flex flex-column gap-3">
-                <div class="row g-3">
-                    <div class="col-md-6"><div id="panel-entorno" class="h-100"></div></div>
-                    <div class="col-md-6"><div id="panel-base" class="h-100"></div></div>
                 </div>
-                <section id="seccion-resultados" class="tarjeta-dash flex-grow-1">
+                <div class="col-xl-8">
+                <section id="seccion-resultados" class="tarjeta-dash">
                     <div class="cab-dash"><div><h2>Indicadores</h2><p>Semáforo por indicador según la última lectura</p></div></div>
                     <details class="guia guia-intro"><summary>ⓘ ¿Por qué se vigilan estos indicadores?</summary>
                 <p>En una misión larga, la radiación, la microgravedad, el aislamiento y un ambiente cerrado cambian tu cuerpo poco a poco: inmunidad, huesos, corazón, sueño y ánimo. Lejos de la Tierra, tú eres quien primero puede notar esos cambios.</p>
@@ -200,8 +209,9 @@
             </details>
                     <div id="resultado"></div>
                 </section>
+                </div>
             </div>
-        </div>
+        </section>
     </main>
 </div>
 

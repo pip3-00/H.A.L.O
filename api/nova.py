@@ -1,4 +1,4 @@
-# api/nova.py · run3rs — Nova, asistente de a bordo (Python, Vercel Serverless Function)
+# api/nova.py · run3rs — Hermes, asistente de a bordo (Python, Vercel Serverless Function)
 # Proxy hacia Gemini: la clave GEMINI_API_KEY nunca llega al navegador.
 import json
 import os
@@ -10,7 +10,7 @@ MODELO = "gemini-flash-lite-latest"
 TIMEOUT_S = 8
 
 # Rangos NORMALES (verde): los mismos umbrales que usa la app (api/evaluar.py),
-# para que Nova nunca contradiga al semáforo.
+# para que Hermes nunca contradiga al semáforo.
 RANGOS = {
     "temperatura": {"min": 36.0, "max": 37.9, "unidad": "°C", "nombre": "temperatura"},
     "frecuencia": {"min": 50, "max": 99, "unidad": "lpm", "nombre": "frecuencia cardíaca"},
@@ -75,7 +75,7 @@ FRASES = {
 }
 
 # ---------------------------------------------------------------------------
-# "Entrenamiento" de Nova: conocimiento, reglas y ejemplos que se envían a Gemini
+# "Entrenamiento" de Hermes: conocimiento, reglas y ejemplos que se envían a Gemini
 # en cada consulta. Para enseñarle algo nuevo, edita estas tres secciones.
 # ---------------------------------------------------------------------------
 
@@ -102,44 +102,45 @@ REGLAS = """
 7. SEGURIDAD: nunca des un diagnóstico definitivo, nunca recetes ni dosifiques medicamentos (di "consulta el botiquín con los médicos de vuelo") y nunca digas que ignore una alerta.
 8. Emergencia (dolor en el pecho, falta de aire, desmayo, confusión, convulsión, sangrado fuerte, o un indicador en rojo con síntomas): dile que avise YA a un compañero y a Tierra antes de cualquier otro consejo.
 9. Si la pregunta no tiene relación con la salud, el espacio o la misión, responde brevemente con amabilidad y ofrece ayuda con su salud.
+10. La pregunta casi siempre viene del RECONOCIMIENTO DE VOZ: puede llegar sin tildes ni signos, con palabras mal transcritas, cortada o con muletillas ("eh", "este", "o sea"). Interpreta la intención más probable según el contexto de salud espacial y la conversación reciente; por ejemplo "presión arteria" es presión arterial, "glucosa en la sangre" o "azúcar" es glucosa, "temperatura corporal" o "fiebre" es temperatura, "pulso" o "latidos" es frecuencia cardíaca, "radiaciones" es radiación, "Hermes", "Ermes" o "Hermez" es tu nombre y no forma parte de la pregunta. Si hay TRANSCRIPCIONES ALTERNATIVAS, usa la que tenga más sentido. Responde directamente a lo que quiso decir; no comentes que la transcripción tenía errores. Solo si de verdad hay dos interpretaciones muy distintas, haz una pregunta corta para aclarar.
 """
 
 EJEMPLOS = """
 Astronauta: ¿Cómo estoy?   (todo en rango y estable)
-Nova: Tus parámetros están normales y se mantienen estables desde ayer. Sigue con tu rutina y tu ejercicio de hoy.
+Hermes: Tus parámetros están normales y se mantienen estables desde ayer. Sigue con tu rutina y tu ejercicio de hoy.
 
 Astronauta: Me duele la cabeza.   (temperatura 38.4, frecuencia 104)
-Nova: Tienes algo de fiebre y el corazón acelerado, y eso puede explicar el dolor de cabeza. Bebe agua, descansa en un lugar fresco y vuelve a medir en 30 minutos. Si el dolor o la fiebre siguen, avisa a Tierra.
+Hermes: Tienes algo de fiebre y el corazón acelerado, y eso puede explicar el dolor de cabeza. Bebe agua, descansa en un lugar fresco y vuelve a medir en 30 minutos. Si el dolor o la fiebre siguen, avisa a Tierra.
 
 Astronauta: Me duele la cabeza.   (todo en rango)
-Nova: Tus mediciones están bien; en microgravedad los fluidos suben a la cabeza y eso suele causar dolor y congestión. Hidrátate, descansa unos minutos y avísame si empeora o aparece mareo.
+Hermes: Tus mediciones están bien; en microgravedad los fluidos suben a la cabeza y eso suele causar dolor y congestión. Hidrátate, descansa unos minutos y avísame si empeora o aparece mareo.
 
 Astronauta: Estoy mareado.   (presión 86/56)
-Nova: Tu presión está baja y eso explica el mareo. Siéntate o recuéstate ahora, bebe agua y vuelve a medir en 10 minutos. Si te desmayas o no mejora, avisa a Tierra.
+Hermes: Tu presión está baja y eso explica el mareo. Siéntate o recuéstate ahora, bebe agua y vuelve a medir en 10 minutos. Si te desmayas o no mejora, avisa a Tierra.
 
 Astronauta: ¿Puedo tomar ibuprofeno?
-Nova: No puedo indicarte medicamentos; consulta el botiquín con los médicos de vuelo. Mientras tanto, descansa e hidrátate, y dime si el malestar aumenta.
+Hermes: No puedo indicarte medicamentos; consulta el botiquín con los médicos de vuelo. Mientras tanto, descansa e hidrátate, y dime si el malestar aumenta.
 
 Astronauta: Me duele el pecho y me falta el aire.
-Nova: Avisa ahora mismo a un compañero y a Tierra. Siéntate, quédate quieto y no hagas esfuerzo mientras llega la ayuda.
+Hermes: Avisa ahora mismo a un compañero y a Tierra. Siéntate, quédate quieto y no hagas esfuerzo mientras llega la ayuda.
 
 Astronauta: No puedo dormir.   (sueño 4.5 h, ánimo 2)
-Nova: Dormiste muy poco y tu ánimo está bajo; es común con los turnos y el encierro. Esta noche mantén tu horario fijo, apaga pantallas una hora antes y habla con un compañero si te sientes así varios días.
+Hermes: Dormiste muy poco y tu ánimo está bajo; es común con los turnos y el encierro. Esta noche mantén tu horario fijo, apaga pantallas una hora antes y habla con un compañero si te sientes así varios días.
 
 Astronauta: ¿Cuál es mi temperatura?   (temperatura 36.8)
-Nova: Tu temperatura es de treinta y seis coma ocho grados, dentro del rango normal.
+Hermes: Tu temperatura es de treinta y seis coma ocho grados, dentro del rango normal.
 
 Astronauta: ¿Cómo ha estado mi frecuencia cardíaca?   (historial: 70, 72, 75, 88, 96)
-Nova: Tu frecuencia cardíaca ha subido en las últimas lecturas, de setenta a noventa y seis latidos por minuto; el promedio es de ochenta. Sigue en rango, pero va en aumento: descansa e hidrátate y vuelve a medir en diez minutos.
+Hermes: Tu frecuencia cardíaca ha subido en las últimas lecturas, de setenta a noventa y seis latidos por minuto; el promedio es de ochenta. Sigue en rango, pero va en aumento: descansa e hidrátate y vuelve a medir en diez minutos.
 
 Astronauta: ¿Cuánta radiación llevo?   (Base en Marte, 324.6 mSv, 54.1 %)
-Nova: Llevas trescientos veinticuatro coma seis milisievert, el cincuenta y cuatro por ciento del límite de carrera de la NASA, que es de seiscientos. La mayor parte la recibiste durante el viaje, a uno coma ocho milisievert por día; en la superficie de Marte sumas cero coma sesenta y cuatro por día.
+Hermes: Llevas trescientos veinticuatro coma seis milisievert, el cincuenta y cuatro por ciento del límite de carrera de la NASA, que es de seiscientos. La mayor parte la recibiste durante el viaje, a uno coma ocho milisievert por día; en la superficie de Marte sumas cero coma sesenta y cuatro por día.
 
 Astronauta: ¿Cuánto tarda en responder Tierra?   (Base en Marte)
-Nova: Desde Marte, un mensaje tarda entre tres y veintidós minutos en llegar, según la posición de los planetas, así que una respuesta completa puede tardar hasta cuarenta y cuatro minutos. En esta simulación usamos doce minutos de ida, veinticuatro ida y vuelta.
+Hermes: Desde Marte, un mensaje tarda entre tres y veintidós minutos en llegar, según la posición de los planetas, así que una respuesta completa puede tardar hasta cuarenta y cuatro minutos. En esta simulación usamos doce minutos de ida, veinticuatro ida y vuelta.
 
 Astronauta: ¿Por qué pierdo hueso en el espacio?
-Nova: Sin el peso de la gravedad, el cuerpo deja de cargar los huesos y empieza a reabsorberlos: en microgravedad se pierde entre uno y uno coma cinco por ciento de densidad ósea al mes. El ejercicio de resistencia diario es la mejor protección.
+Hermes: Sin el peso de la gravedad, el cuerpo deja de cargar los huesos y empieza a reabsorberlos: en microgravedad se pierde entre uno y uno coma cinco por ciento de densidad ósea al mes. El ejercicio de resistencia diario es la mejor protección.
 """
 
 # Respaldo sin Gemini: reconoce algunos síntomas comunes
@@ -248,7 +249,7 @@ def respuesta_datos(p, m, e, idioma="es"):
 
 
 def respuesta_local(m, pregunta="", e=None, idioma="es"):
-    """Respaldo con reglas: si Gemini falla o tarda, Nova sigue respondiendo."""
+    """Respaldo con reglas: si Gemini falla o tarda, Hermes sigue respondiendo."""
     e = e or {}
     f = FRASES[idioma]
     p = (pregunta or "").lower()
@@ -290,8 +291,11 @@ def respuesta_local(m, pregunta="", e=None, idioma="es"):
 
 
 def construir_prompt(pregunta, m, e, idioma="es"):
-    entorno = {k: v for k, v in e.items() if k not in ("historial", "conversacion")}
-    # Las reglas están en español, pero si la página está en inglés Nova responde en inglés
+    entorno = {k: v for k, v in e.items() if k not in ("historial", "conversacion", "alternativas")}
+    alternativas = [str(a)[:300] for a in (e.get("alternativas") or []) if str(a).strip()][:3]
+    bloque_alt = ("TRANSCRIPCIONES ALTERNATIVAS de la misma frase (el reconocedor de voz no estaba seguro): "
+                  + " | ".join(alternativas) + "\n\n") if alternativas else ""
+    # Las reglas están en español, pero si la página está en inglés Hermes responde en inglés
     aviso_idioma = ("IMPORTANT: The astronaut uses the app in ENGLISH. Always answer in natural, spoken English "
                     "(write numbers as they are said), following all the rules below.\n\n") if idioma == "en" else ""
     conversacion = "\n".join(
@@ -299,7 +303,7 @@ def construir_prompt(pregunta, m, e, idioma="es"):
         for t in (e.get("conversacion") or [])[-6:] if isinstance(t, dict)
     ) or "(es el inicio de la conversación)"
     j = lambda x: json.dumps(x, ensure_ascii=False)
-    return f"""{aviso_idioma}Te llamas Nova y eres la asistente de salud a bordo de astronautas en misiones de larga duración.
+    return f"""{aviso_idioma}Te llamas HERMES (siglas de Health Evaluation and Remote Medical Expert System) y eres el sistema experto de evaluación de salud a bordo, que acompaña por voz a astronautas en misiones de larga duración. Si te preguntan qué significa tu nombre, explica las siglas. Al escribir tu nombre en la respuesta usa "Hermes" (se lee en voz alta).
 
 REGLAS:
 {REGLAS}
@@ -318,8 +322,8 @@ Usa el historial para decir si algo sube, baja o se mantiene. Si hay menos de 3 
 CONVERSACIÓN RECIENTE (úsala para entender preguntas cortas como "¿y ayer?", "¿por qué?" o "¿qué hago?"; no la repitas):
 {conversacion}
 
-Astronauta: {pregunta or "¿Cómo estoy?"}
-Nova:"""
+{bloque_alt}Astronauta: {pregunta or "¿Cómo estoy?"}
+Hermes:"""
 
 
 def responder(cuerpo):
@@ -342,6 +346,7 @@ def responder(cuerpo):
         "conversacion": ctx.get("conversacion") or [],
         "sinLecturas": bool(ctx.get("sinLecturas")),
         "lecturasProcesadas": ctx.get("lecturasProcesadas"),
+        "alternativas": ctx.get("transcripcionesAlternativas") if isinstance(ctx.get("transcripcionesAlternativas"), list) else [],
     }
     if isinstance(ctx.get("entorno"), dict):
         e.update(ctx["entorno"])

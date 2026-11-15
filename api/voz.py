@@ -1,4 +1,4 @@
-# api/voz.py · run3rs — voz de Nova (Python, Vercel Serverless Function)
+# api/voz.py · run3rs — voz de Hermes (Python, Vercel Serverless Function)
 # Convierte texto en audio con Gemini TTS y lo devuelve como WAV en base64.
 # Si falla (sin clave, modelo no disponible, tiempo agotado), responde {"audio": null}
 # y el navegador usa su voz de respaldo.

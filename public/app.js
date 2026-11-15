@@ -159,16 +159,32 @@ function promedio(arr) {
 
 // ===== 2. LEER =====
 
+// Lecturas que solo cambian una vez por día de misión (clave: indicador -> "día|wearable|escenario")
+const simuladoDelDia = {};
+
+// Simula una lectura SOLO con lo que mide el wearable elegido; lo que no mide queda vacío.
+// El sueño se calcula una vez por noche, y la presión del WHOOP una vez al despertar.
 function simularAstroskin() {
     const nombre = document.getElementById("escenario").value;
     const esc = ESCENARIOS[nombre];
+    const w = wearableActual();
+    const dia = Number(document.getElementById("dia-mision").value) || 1;
+    const marca = dia + "|" + w.id + "|" + nombre;
 
-    document.getElementById("temperatura").value = variar(esc.temperatura[0], esc.temperatura[1]).toFixed(1);
-    document.getElementById("frecuencia").value = Math.round(variar(esc.frecuencia[0], esc.frecuencia[1]));
-    document.getElementById("sistolica").value = Math.round(variar(esc.sistolica[0], esc.sistolica[1]));
-    document.getElementById("diastolica").value = Math.round(variar(esc.diastolica[0], esc.diastolica[1]));
-    document.getElementById("glucosa").value = Math.round(variar(esc.glucosa[0], esc.glucosa[1]));
-    document.getElementById("sueno").value = Math.round(variar(esc.sueno[0], esc.sueno[1]) * 2) / 2;
+    function poner(id, valor, unaVezAlDia) {
+        const campo = document.getElementById(id);
+        if (!wearableMide(id)) { campo.value = ""; return; }
+        if (unaVezAlDia && campo.value !== "" && simuladoDelDia[id] === marca) return;
+        campo.value = valor;
+        if (unaVezAlDia) simuladoDelDia[id] = marca;
+    }
+
+    poner("temperatura", variar(esc.temperatura[0], esc.temperatura[1]).toFixed(1));
+    poner("frecuencia", Math.round(variar(esc.frecuencia[0], esc.frecuencia[1])));
+    poner("sistolica", Math.round(variar(esc.sistolica[0], esc.sistolica[1])), !!w.presionDiaria);
+    poner("diastolica", Math.round(variar(esc.diastolica[0], esc.diastolica[1])), !!w.presionDiaria);
+    poner("glucosa", Math.round(variar(esc.glucosa[0], esc.glucosa[1])));
+    poner("sueno", Math.round(variar(esc.sueno[0], esc.sueno[1]) * 2) / 2, true);
     if (!animoManual) document.getElementById("animo").value = Math.round(variar(esc.animo[0], esc.animo[1]));
     sincronizarCaras();
 }
@@ -244,24 +260,31 @@ const WEARABLES = [
     { id: "reloj", nombre: "Reloj inteligente (prototipo run3rs)", forma: "reloj",
       mide: ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"],
       extras: ["spo2", "actividad"],
-      nota: "Tu prototipo de reloj: pulso óptico y electrocardiograma, oxígeno en sangre, temperatura de la piel, sueño y actividad. La presión es una estimación que hay que calibrar con un tensiómetro de brazo. Pantalla en la muñeca: muestra alertas y vibra." },
-    { id: "whoop", nombre: "Banda WHOOP MG", forma: "whoop",
+      nota: "Tu prototipo de reloj (como un Apple Watch o Galaxy Watch): pulso óptico y electrocardiograma, oxígeno en sangre, temperatura de la piel, sueño y actividad. La presión es una estimación que hay que calibrar con un tensiómetro de brazo. Pantalla en la muñeca: muestra alertas y vibra." },
+    { id: "whoop", nombre: "Banda WHOOP MG", forma: "whoop", presionDiaria: true,
       mide: ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"],
       extras: ["spo2", "resp", "vfc", "actividad"],
-      nota: "Pulso óptico, variabilidad cardíaca, frecuencia respiratoria, oxígeno en sangre, temperatura de la piel, sueño y esfuerzo. La presión es una estimación diaria al despertar (función beta que se calibra con brazalete). Sin pantalla: vibra y los datos se ven en la app." },
+      nota: "Pulso óptico, variabilidad cardíaca, frecuencia respiratoria, oxígeno en sangre, temperatura de la piel, sueño y esfuerzo. La presión es una estimación diaria al despertar (función beta que se calibra con brazalete): se simula una vez por día de misión. Sin pantalla: vibra y los datos se ven en la app." },
     { id: "biomonitor", nombre: "Bio-Monitor (Agencia Espacial Canadiense)", forma: "biomonitor",
       mide: ["temperatura", "frecuencia", "sistolica", "diastolica"],
       extras: ["spo2", "resp", "volumen", "actividad"],
       nota: "Camiseta inteligente y diadema de la Estación Espacial. Mide pulso y electrocardiograma, presión arterial, frecuencia y volumen respiratorio, temperatura de la piel, oxígeno en sangre (diadema) y actividad física. No mide el sueño. Sin pantalla: los datos se ven en la tableta y bajan a la Tierra." },
 ];
 traducirDatos(WEARABLES, "WEARABLES");
-const SIEMPRE = ["glucosa", "animo"];
+// La glucosa no la mide ningún wearable de muñeca o camiseta: llega de un parche aparte (CGM tipo Dexcom o Libre).
+// El ánimo lo registra el astronauta.
+const SIEMPRE = ["animo"];
+function cgmConectado() {
+    const c = document.getElementById("cgm");
+    return !c || c.checked;
+}
 let indiceWearable = 0;
 try { indiceWearable = Math.max(0, WEARABLES.findIndex(w => w.id === localStorage.getItem("run3rs-wearable"))); } catch (_) {}
 
 function wearableActual() { return WEARABLES[indiceWearable]; }
 
 function wearableMide(clave) {
+    if (clave === "glucosa") return cgmConectado();
     return SIEMPRE.includes(clave) || wearableActual().mide.includes(clave);
 }
 
@@ -271,10 +294,23 @@ function pintarWearable() {
     const sensores = document.getElementById("wear-sensores");
     if (nombre) nombre.textContent = `${w.nombre}  ·  ${tr("{n} de {total}", { n: indiceWearable + 1, total: WEARABLES.length })}`;
     if (sensores) {
-        sensores.textContent = w.nota;
+        // Qué se simula con este wearable y qué no (la presión cuenta como un solo indicador)
+        const NOMBRE_CORTO = { temperatura: tr("Temperatura de la piel"), frecuencia: tr("Frecuencia cardíaca"), presion: tr("Presión arterial"), sueno: tr("Sueño"), glucosa: tr("Glucosa (parche aparte)") };
+        const claves = ["temperatura", "frecuencia", "presion", "sueno", "glucosa"];
+        const mide = k => k === "presion" ? wearableMide("sistolica") : wearableMide(k);
+        const si = claves.filter(mide).map(k => NOMBRE_CORTO[k] + (k === "presion" && w.presionDiaria ? " (" + tr("1 vez al día") + ")" : ""));
+        const no = claves.filter(k => !mide(k)).map(k => NOMBRE_CORTO[k]);
+        sensores.innerHTML = "";
+        const lista = document.createElement("span");
+        lista.className = "wear-simula";
+        lista.textContent = tr("Simula:") + " " + si.join(", ") + (no.length ? "  ·  " + tr("No mide:") + " " + no.join(", ") : "");
+        const nota = document.createElement("span");
+        nota.textContent = w.nota;
+        sensores.appendChild(lista);
+        sensores.appendChild(nota);
     }
     // En el formulario se marcan los campos que este wearable no mide
-    ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"].forEach(function (id) {
+    ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno", "glucosa"].forEach(function (id) {
         const campo = document.getElementById(id);
         if (!campo) return;
         const mide = wearableMide(id);
@@ -284,6 +320,15 @@ function pintarWearable() {
         if (caja) caja.classList.toggle("no-medido", !mide);
     });
 }
+
+(function () {
+    const cgm = document.getElementById("cgm");
+    if (cgm) cgm.addEventListener("change", function () {
+        if (!cgm.checked) document.getElementById("glucosa").value = "";
+        pintarWearable();
+        if (ultimoReloj) procesar();
+    });
+})();
 
 function cambiarWearable(paso) {
     indiceWearable = (indiceWearable + paso + WEARABLES.length) % WEARABLES.length;
@@ -765,7 +810,7 @@ function guiaHtml(clave) {
 })();
 
 function mostrarResultados(mediciones, resultados, general) {
-    window.novaAlerta = general;       // el orbe de Nova cambia de color según la advertencia
+    window.novaAlerta = general;       // el orbe de Hermes cambia de color según la advertencia
     const contenedor = document.getElementById("resultado");
 
     let html = `<div class="general estado-${general}">
@@ -917,7 +962,7 @@ function actualizarBase(mediciones, resultados) {
     if (avisos.length) {
         const texto = avisos.join(" ");
         const mensaje = document.createElement("p");
-        mensaje.textContent = tr("Nova (línea base): ") + texto;
+        mensaje.textContent = tr("Hermes (línea base): ") + texto;
         document.getElementById("chat-ia").appendChild(mensaje);
         hablarAlerta(texto);
     }
@@ -1196,11 +1241,11 @@ if ("speechSynthesis" in window) {
     prepararSelectorVoz();
 }
 
-// Las alertas automáticas NUNCA interrumpen una conversación: si Nova está hablando,
+// Las alertas automáticas NUNCA interrumpen una conversación: si Hermes está hablando,
 // escuchando o pensando, esperan y se dicen después.
 const alertasPendientes = [];
 
-// Ocupada = Nova está en una conversación. Si solo está diciendo otra alerta,
+// Ocupada = Hermes está en una conversación. Si solo está diciendo otra alerta,
 // la nueva se encola detrás (la cola de voz garantiza que no se corte).
 function conversacionOcupada() {
     return typeof window.novaOcupada === "function" && window.novaOcupada();
@@ -1232,7 +1277,7 @@ function resumenParaVoz(texto) {
     return (salida || frases[0] || "").trim();
 }
 
-// ===== Voz de Nova =====
+// ===== Voz de Hermes =====
 // Voz principal: Gemini TTS a través de api/voz.py (Python). Si no está disponible,
 // se usa la voz del navegador. Todo pasa por una cola para que nada se corte.
 const colaVoz = [];
@@ -1441,7 +1486,7 @@ function anunciarAnomalias(resultados) {
     if (textos.length === 0) return;
 
     const mensaje = document.createElement("p");
-    mensaje.textContent = tr("Nova (alerta automática): ") + textos.join(" ");
+    mensaje.textContent = tr("Hermes (alerta automática): ") + textos.join(" ");
     document.getElementById("chat-ia").appendChild(mensaje);
 
     // Por voz: lo más grave primero, máximo dos avisos; el resto se remite al panel
@@ -1640,15 +1685,18 @@ function hayLecturas() {
     return ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa", "sueno"].some(k => m[k] !== null);
 }
 
-// Charla básica: Nova contesta como una asistente aunque no haya lecturas ni internet
+// Charla básica: Hermes contesta como una asistente aunque no haya lecturas ni internet
 function respuestaCharla(texto) {
     const t = String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
     if (!t) return null;
     // Se entienden frases en español y en inglés; la respuesta sale en el idioma de la página
-    if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|hi|hello|good morning|good afternoon|good evening)( nova)?$/.test(t)) return tr("¡Hola! Aquí estoy. ¿En qué te ayudo?");
-    if (/\b(como estas|como te encuentras|que tal estas|como te va|how are you|how are you doing|how s it going)\b/.test(t)) return tr("Estoy bien, gracias por preguntar, y lista para ayudarte. ¿Quieres que revise cómo estás tú?");
-    if (/\b(quien eres|que eres|como te llamas|cual es tu nombre|who are you|what are you|what s your name|what is your name)\b/.test(t)) return tr("Soy Nova, tu asistente de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.");
-    if (/\b(que puedes hacer|en que me ayudas|que sabes hacer|ayuda|what can you do|help me|help)\b/.test(t)) return tr("Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.");
+    // Solo cuenta como charla si la frase ENTERA es charla: "¿qué tal está mi presión?" va a Gemini
+    const t2 = t.replace(/^(?:oye |hola |hey |ok |okey )?(?:hermes |ermes |hermez )?/, "").replace(/(?: hermes| ermes| hermez)$/, "").trim();
+    if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|hi|hello|good morning|good afternoon|good evening)$/.test(t) ||
+        /^(hola|buenas|hey|hi|hello)( hermes| ermes| hermez)$/.test(t)) return tr("¡Hola! Aquí estoy. ¿En qué te ayudo?");
+    if (/^(y )?(tu )?(hola )?(como estas|como esta|como estas tu|como te encuentras|que tal|que tal estas|como te va|como andas|como te sientes|como amaneciste|como has estado|how are you|how are you doing|how s it going)( tu| hoy)?$/.test(t2)) return tr("Estoy bien, gracias por preguntar, y lista para ayudarte. ¿Quieres que revise cómo estás tú?");
+    if (/^(quien eres|que eres|como te llamas|cual es tu nombre|que significa hermes|que significa tu nombre|que quiere decir hermes|who are you|what are you|what s your name|what is your name)( tu)?$/.test(t2)) return tr("Soy Hermes, siglas de Health Evaluation and Remote Medical Expert System: tu sistema de evaluación de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.");
+    if (/^(que puedes hacer|en que me ayudas|en que me puedes ayudar|que sabes hacer|ayuda|ayudame|what can you do|help me|help)$/.test(t2)) return tr("Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.");
     return null;
 }
 
@@ -1681,6 +1729,9 @@ function respuestaLocalCliente(pregunta) {
     return tr("Según tus mediciones:") + " " + partes.join(" ");
 }
 
+// Las alternativas del reconocedor solo valen para la frase que se acaba de oír
+function porVozReciente() { return Array.isArray(window.novaAlternativas) && window.novaAlternativas.length > 0; }
+
 // Memoria corta de la conversación (como Alexa: entiende "¿y ayer?", "¿por qué?")
 window.novaConversacion = [];
 function recordarTurno(pregunta, respuesta) {
@@ -1693,7 +1744,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
     const charlaRapida = respuestaCharla(pregunta);
     if (charlaRapida) {
         const chat = document.getElementById("chat-ia");
-        [[tr("Astronauta: "), pregunta], ["Nova: ", charlaRapida]].forEach(function (p) {
+        [[tr("Astronauta: "), pregunta], ["Hermes: ", charlaRapida]].forEach(function (p) {
             const el = document.createElement("p"); el.textContent = p[0] + p[1]; chat.appendChild(el);
         });
         if (porVoz) hablar(charlaRapida);
@@ -1724,6 +1775,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
             )
         })),
         conversacion: (window.novaConversacion || []).slice(-6),
+        transcripcionesAlternativas: porVozReciente() ? (window.novaAlternativas || []) : [],
         sinLecturas: !hayLecturas(),
         lecturasProcesadas: HISTORIAL.length,
         entorno: {
@@ -1733,18 +1785,19 @@ async function consultarAsistente(pregunta, porVoz = false) {
             perdidaOsea: entorno.perdidaOsea
         }
     };
+    window.novaAlternativas = [];      // ya se usaron para esta pregunta
 
     const mensajeUsuario = document.createElement("p");
     mensajeUsuario.textContent = tr("Astronauta: ") + pregunta;
 
     const mensajeIA = document.createElement("p");
-    mensajeIA.textContent = "Nova: " + tr("Analizando mediciones...");
+    mensajeIA.textContent = "Hermes: " + tr("Analizando mediciones...");
 
     chat.appendChild(mensajeUsuario);
     chat.appendChild(mensajeIA);
 
     boton.disabled = true;
-    boton.textContent = tr("Consultando a Nova...");
+    boton.textContent = tr("Consultando a Hermes...");
 
     try {
 
@@ -1784,7 +1837,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
             );
         }
 
-        mensajeIA.textContent = "Nova: " + datos.respuesta;
+        mensajeIA.textContent = "Hermes: " + datos.respuesta;
         if (porVoz) hablar(resumenParaVoz(datos.respuesta));   // si preguntaste hablando, responde hablando
         recordarTurno(pregunta, datos.respuesta);
         return datos.respuesta;
@@ -1796,7 +1849,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
         // Respaldo: si el asistente en línea falla, se responde con las reglas locales
         // (así la conversación de voz sigue funcionando aunque el servidor falle).
         const local = respuestaLocalCliente(pregunta);
-        mensajeIA.textContent = tr("Nova (sin conexión con el asistente en línea): ") + local;
+        mensajeIA.textContent = tr("Hermes (sin conexión con el asistente en línea): ") + local;
         if (porVoz) hablar(local);
         recordarTurno(pregunta, local);
         return local;
@@ -1804,7 +1857,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
     } finally {
 
         boton.disabled = false;
-        boton.textContent = tr("Consultar a Nova");
+        boton.textContent = tr("Consultar a Hermes");
 
     }
 }
@@ -1828,16 +1881,16 @@ document.getElementById("formulario-asistente")
         await consultarAsistente(pregunta);
     });
 
-// ===== Nova: asistente por voz al estilo Alexa =====
-// - Se activa como Siri o Google: "Oye Nova", "Ok Nova", "Hey Nova" o solo "Nova".
+// ===== Hermes: asistente por voz al estilo Alexa =====
+// - Se activa como Siri o Google: "Oye Hermes", "Ok Hermes", "Hey Hermes" o solo "Hermes".
 // - No hay botón: empieza a escuchar sola al abrir la página (o con el primer toque si el navegador lo exige).
 // - Suena un tono al oírte, igual que Alexa, y escucha tu pregunta.
 // - Tras responder sigue escuchando unos segundos para que sigas la conversación sin repetir su nombre.
-// - "Nova, para" / "Nova, silencio" la interrumpe aunque esté hablando.
-// - "Nova, deja de escuchar" apaga el micrófono; tocar la página la vuelve a encender.
+// - "Hermes, para" / "Hermes, silencio" la interrumpe aunque esté hablando.
+// - "Hermes, deja de escuchar" apaga el micrófono; tocar la página la vuelve a encender.
 // - Comandos rápidos que se resuelven al instante (hora, día, wearable, simulación, Tierra...).
 
-const NOMBRE_ASISTENTE = "Nova";
+const NOMBRE_ASISTENTE = "Hermes";
 
 (function () {
     const boton = document.getElementById("btn-microfono");
@@ -1863,15 +1916,18 @@ const NOMBRE_ASISTENTE = "Nova";
 
     const normalizar = t => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
         .replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
-    // "Nova ..." al inicio de la frase. "nueva" solo cuenta si va después de "oye/hey/ok"
-    // "Nova" en cualquier parte de la frase (el reconocedor a veces escribe noba, novas, lova...)
-    const ACTIVACION = /(?:^|\s)(?:nova|noba|novas|nobas)\b\s*(.*)$/;
-    const ACTIVACION_NUEVA = /(?:^|\s)(?:oye|hey|hola|ok|okey)\s+(?:nueva|nuevas)\b\s*(.*)$/;
+    // "Hermes ..." al inicio de la frase. "nueva" solo cuenta si va después de "oye/hey/ok"
+    // "Hermes" en cualquier parte de la frase (el reconocedor a veces escribe ermes, hermez, Hermès...)
+    const ACTIVACION = /(?:^|\s)(?:hermes|ermes|hermez|ermez|hermess|irmes)\b\s*(.*)$/;
+    const ACTIVACION_NUEVA = /(?:^|\s)(?:oye|hey|hola|ok|okey)\s+(?:her mes|er mes|ernes|hernes|germes|hermel)\b\s*(.*)$/;
     // Órdenes en español y en inglés (funcionan en cualquier idioma de la página)
     const PARAR = /^(?:para|parar|silencio|callate|calla|detente|cancela|cancelar|basta|stop|ya|quiet|silence|cancel|enough|shut up|be quiet)\b/;
     const APAGAR = /^(?:deja de escuchar(?:me)?|no escuches|apagate|apaga el microfono|desactivate|duermete|a dormir|stop listening|turn off|go to sleep|deactivate|mute the microphone)\b/;
-    const SEGUIMIENTO_MS = 7000;   // tiempo para seguir hablando sin decir "Nova"
-    const ESCUCHA_MS = 8000;       // tiempo para hacer la pregunta tras decir "Nova"
+    // "Adiós" / "hasta luego": Hermes se despide y se queda en silencio hasta que vuelvan a decir «Hermes»
+    const DESPEDIDA = /\b(adios|hasta luego|hasta pronto|hasta manana|hasta la proxima|nos vemos|chao|chau|bye|bye bye|goodbye|good bye|see you|see you later)\b/;
+    let dormida = false;
+    const SEGUIMIENTO_MS = 7000;   // tiempo para seguir hablando sin decir "Hermes"
+    const ESCUCHA_MS = 8000;       // tiempo para hacer la pregunta tras decir "Hermes"
 
     let reco = null;
     let activo = false;
@@ -1879,17 +1935,17 @@ const NOMBRE_ASISTENTE = "Nova";
     let temporizador = null;
     let ultimaRespuesta = "";
     let microListo = false;
-    // Modo conversación: responde a todo lo que oiga, sin tener que decir "Nova".
-    // Modo nombre: solo responde cuando dices "Nova" (útil en lugares con mucha gente o ruido).
-    // Por defecto funciona como Siri o Google: espera a oír «Nova» / «Oye Nova» antes de responder.
-    let modoLibre = false;
-    try { modoLibre = localStorage.getItem("run3rs-nova-modo") === "libre"; } catch (_) {}
+    // Modo conversación: responde a todo lo que oiga, sin tener que decir "Hermes".
+    // Modo nombre: solo responde cuando dices "Hermes" (útil en lugares con mucha gente o ruido).
+    // Por defecto funciona como Siri o Google: espera a oír «Hermes» / «Oye Hermes» antes de responder.
+    let modoLibre = true;      // por defecto responde sin decir «Hermes»
+    try { modoLibre = localStorage.getItem("run3rs-nova-modo") !== "nombre"; } catch (_) {}
     const botonModo = document.createElement("button");
     botonModo.type = "button";
     botonModo.id = "btn-modo-nova";
     function pintarModo() {
-        botonModo.textContent = tr(modoLibre ? "💬 Modo conversación (sin decir «Nova»)" : "🏷 Modo nombre (di «Nova» primero)");
-        botonModo.title = tr(modoLibre ? "Responde a todo lo que oye. Cámbialo si hay mucho ruido o gente hablando." : "Solo responde cuando dices «Nova».");
+        botonModo.textContent = tr(modoLibre ? "💬 Modo conversación (sin decir «Hermes»)" : "🏷 Modo nombre (di «Hermes» primero)");
+        botonModo.title = tr(modoLibre ? "Responde a todo lo que oye. Cámbialo si hay mucho ruido o gente hablando." : "Solo responde cuando dices «Hermes».");
     }
     botonModo.addEventListener("click", function () {
         modoLibre = !modoLibre;
@@ -1910,17 +1966,17 @@ const NOMBRE_ASISTENTE = "Nova";
         estado = nuevo;
         window.novaEstado = nuevo === "hablando" ? "esperando" : nuevo;
         const textos = {
-            apagado: "🎙 Activar a Nova",
-            esperando: "🔴 Nova está atenta · pulsa para apagar",
+            apagado: "🎙 Activar a Hermes",
+            esperando: "🔴 Hermes está atenta · pulsa para apagar",
             escuchando: "🟢 Te escucho...",
             pensando: "⏳ Pensando...",
-            hablando: "🔊 Nova habla · di «Nova, para» para cortarla",
+            hablando: "🔊 Hermes habla · di «Hermes, para» para cortarla",
         };
         boton.textContent = tr(textos[nuevo]);
         estadoEl.textContent = mensaje || "";
     }
 
-    // Tono corto al activarse (como Alexa). Usa el mismo audio que la voz de Nova.
+    // Tono corto al activarse (como Alexa). Usa el mismo audio que la voz de Hermes.
     function tono(subida) {
         const ctx = asegurarAudio();
         if (!ctx) return;
@@ -1954,7 +2010,7 @@ const NOMBRE_ASISTENTE = "Nova";
     function aEspera() {
         clearTimeout(temporizador);
         if (!activo) return;
-        ponerEstado("esperando", tr(modoLibre ? "Háblame cuando quieras" : "Di «Oye Nova» y tu pregunta"));
+        ponerEstado("esperando", tr(dormida ? "En silencio. Di «Hermes» para volver a hablar" : modoLibre ? "Háblame cuando quieras" : "Di «Oye Hermes» y tu pregunta"));
         vaciarAlertasPendientes();
     }
 
@@ -1964,20 +2020,20 @@ const NOMBRE_ASISTENTE = "Nova";
         temporizador = setTimeout(function () { if (estado === "escuchando") aEspera(); }, ms);
     }
 
-    // Tras hablar: modo seguimiento (puedes seguir sin decir "Nova")
+    // Tras hablar: modo seguimiento (puedes seguir sin decir "Hermes")
     function trasHablar(seguimiento) {
         esperarFinVoz(function () {
             if (!activo) return;
             if (vaciarAlertasPendientes()) { esperarFinVoz(() => trasHablar(seguimiento)); return; }
             if (!seguimiento) { aEspera(); return; }
-            abrirEscucha(SEGUIMIENTO_MS, tr("Puedes seguir hablando, o di «Nova» más tarde"));
+            abrirEscucha(SEGUIMIENTO_MS, tr("Puedes seguir hablando, o di «Hermes» más tarde"));
         });
     }
 
     function decir(texto, seguimiento = true) {
         if (seguimiento) ultimaRespuesta = texto;
         topeVozMs = Math.min(40000, 6000 + texto.length * 90);
-        // Si Nova se encendió sola al abrir la página, el navegador no deja sonar audio hasta que
+        // Si Hermes se encendió sola al abrir la página, el navegador no deja sonar audio hasta que
         // el usuario toque la página una vez: la respuesta se ve en el subtítulo y se avisa.
         const sinGesto = navigator.userActivation && !navigator.userActivation.hasBeenActive;
         ponerEstado("hablando", sinGesto ? tr("Toca la página una vez para poder oír mi voz.") : "");
@@ -1997,39 +2053,40 @@ const NOMBRE_ASISTENTE = "Nova";
         const charla = respuestaCharla(t);
         if (charla) return charla;
         // Las frases se reconocen en español y en inglés; la respuesta sale en el idioma de la página
-        if (/\b(gracias|muchas gracias|thanks|thank you)\b/.test(t) && t.split(" ").length <= 4) return tr("De nada. Aquí estoy.");
-        if (/\b(repite|repitelo|otra vez|que dijiste|repeat|say that again|what did you say)\b/.test(t)) return ultimaRespuesta || tr("Aún no he dicho nada.");
-        if (/\bque hora es\b|\bla hora\b|\bwhat time is it\b|\bthe time\b/.test(t)) {
+        // Todo lo que no sea una orden corta y clara lo interpreta Gemini (entiende la intención, no palabras sueltas)
+        const n = t.split(" ").filter(Boolean).length;
+        if (n > 8) return null;
+        if (/^(gracias|muchas gracias|mil gracias|ok gracias|thanks|thank you)( hermes| ermes)?$/.test(t)) return tr("De nada. Aquí estoy.");
+        if (/^(repite|repitelo|repitemelo|repite eso|otra vez|que dijiste|como dijiste|puedes repetir|no te entendi|repeat|say that again|what did you say)( por favor| please)?$/.test(t)) return ultimaRespuesta || tr("Aún no he dicho nada.");
+        if (/^(dime )?(que hora es|la hora|que hora tenemos|what time is it|tell me the time)( por favor| please)?$/.test(t)) {
             const d = new Date();
             return IDIOMA === "en"
                 ? `It's ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}.`
                 : `Son las ${numeroEnPalabras(d.getHours())} y ${numeroEnPalabras(d.getMinutes())}.`;
         }
-        if (/\b(que dia|dia de (la )?mision|what day|mission day)\b/.test(t)) return tr("Estás en el día {dia} de la misión.", { dia: numeroEnPalabras(diaActual()) });
-        if (/\b(cuanto falta|cuando responde|respuesta de tierra|how long|when will earth|earth s response|earth response|earth reply)\b/.test(t)) {
+        if (/^(que dia (es|es hoy|de (la )?mision es)|en que dia (de (la )?mision )?(estoy|estamos|vamos)|dia de (la )?mision|what day is it|what mission day is it)$/.test(t)) return tr("Estás en el día {dia} de la misión.", { dia: numeroEnPalabras(diaActual()) });
+        if (/\b(tierra|earth)\b/.test(t) && /\b(cuanto falta|cuando|tarda|llega|respuesta|responde|how long|when)\b/.test(t)) {
             if (relojTierra && relojTierra.restante !== undefined) return tr("La respuesta de Tierra llega en {tiempo}.", { tiempo: tiempoHablado(relojTierra.restante) });
             if (relojTierra && relojTierra.recibida) return tr("La respuesta de Tierra ya llegó. Sigue el protocolo.");
-            return tr("No hay ningún aviso a Tierra en curso.");
+            if (/\b(aviso|alerta|mi |respuesta de|response)\b/.test(t)) return tr("No hay ningún aviso a Tierra en curso.");
         }
-        const sim = /\b(simulacion|wearable|datos|lecturas|monitoreo|simulation|data|readings|monitoring)\b/.test(t);
-        if (sim && /\b(inicia|empieza|conecta|activa|enciende|arranca|start|begin|connect|activate|turn on)\b/.test(t)) {
+        // Órdenes: el verbo va al principio ("inicia la simulación", "desconecta el wearable")
+        const sim = n <= 6 && !/^(para|por) que\b/.test(t) && /\b(simulacion|wearable|monitoreo|lecturas|simulation|monitoring|readings)\b/.test(t);
+        if (sim && /^(por favor )?(inicia|iniciar|empieza|empezar|comienza|conecta|conectar|activa|activar|enciende|arranca|pon|start|begin|connect|activate|turn on)\b/.test(t)) {
             if (!temporizador_vivo_activo()) document.getElementById("btn-vivo").click();
             return tr("Listo, wearable conectado. Recibirás una lectura cada {n} segundos.", { n: numeroEnPalabras(INTERVALO_MS / 1000) });
         }
-        if (sim && /\b(deten|para|desconecta|apaga|termina|stop|disconnect|turn off|end)\b/.test(t)) {
+        if (sim && /^(por favor )?(deten|detener|para|parar|desconecta|desconectar|apaga|apagar|termina|terminar|stop|disconnect|turn off|end)\b/.test(t)) {
             if (temporizador_vivo_activo()) document.getElementById("btn-vivo").click();
             return tr("Listo, wearable desconectado.");
         }
-        if (/\b(bio ?monitor|camiseta|shirt)\b/.test(t)) return elegirWearable("biomonitor");
-        if (/\b(whoop|banda|band)\b/.test(t)) return elegirWearable("whoop");
-        if (/\b(reloj|watch)\b/.test(t) && /\b(usa|cambia|pon|elige|use|switch|change|pick)\b/.test(t)) return elegirWearable("reloj");
-        if (/\b(cambia|siguiente|otro|change|next|another|switch)\b.*\b(wearable|dispositivo|device)\b/.test(t)) {
+        const cambio = n <= 6 && /^(por favor )?(usa|usar|cambia|cambiar|pon|poner|elige|selecciona|simula|use|switch|change|pick|select)\b/.test(t);
+        if (cambio && /\b(bio ?monitor|camiseta|shirt)\b/.test(t)) return elegirWearable("biomonitor");
+        if (cambio && /\b(whoop|banda|band)\b/.test(t)) return elegirWearable("whoop");
+        if (cambio && /\b(reloj|watch|smartwatch)\b/.test(t)) return elegirWearable("reloj");
+        if (cambio && /\b(wearable|dispositivo|device|otro|siguiente|next|another)\b/.test(t)) {
             cambiarWearable(1);
             return tr("Cambié a {nombre}.", { nombre: wearableActual().nombre });
-        }
-        if (/\b(radiacion|radiation)\b/.test(t) && HISTORIAL.length) {
-            const e = HISTORIAL[HISTORIAL.length - 1].entorno;
-            if (e) return tr("Llevas {msv} milisievert, el {pct} por ciento del límite de la NASA.", { msv: textoNumeroHablado(e.radiacionMSv), pct: numeroEnPalabras(Math.round(e.porcentajeLimite)) });
         }
         return null;
     }
@@ -2052,7 +2109,7 @@ const NOMBRE_ASISTENTE = "Nova";
         if (rapido) {
             tono(true);
             const chat = document.getElementById("chat-ia");
-            [[tr("Astronauta: "), pregunta], ["Nova: ", rapido]].forEach(function (p) {
+            [[tr("Astronauta: "), pregunta], ["Hermes: ", rapido]].forEach(function (p) {
                 const el = document.createElement("p");
                 el.textContent = p[0] + p[1];
                 chat.appendChild(el);
@@ -2067,7 +2124,7 @@ const NOMBRE_ASISTENTE = "Nova";
         decir(resumenParaVoz(respuesta || tr("No pude responder ahora. Inténtalo de nuevo.")));
     }
 
-    // Las alertas automáticas esperan mientras Nova conversa
+    // Las alertas automáticas esperan mientras Hermes conversa
     window.novaOcupada = function () {
         return activo && (estado === "escuchando" || estado === "pensando" || estado === "hablando");
     };
@@ -2078,7 +2135,25 @@ const NOMBRE_ASISTENTE = "Nova";
 
         const conNombre = t.match(ACTIVACION);
 
-        // "Nova, deja de escuchar" / "Nova, stop listening": apaga el micrófono; tocar la página la vuelve a encender.
+        // Despedida: corta lo que esté diciendo, se despide y queda en silencio (funciona aunque esté hablando)
+        if (!dormida && DESPEDIDA.test(t) && t.split(" ").length <= 5) {
+            detenerVoz();
+            clearTimeout(temporizador);
+            dormida = true;
+            tono(false);
+            decir(tr("Hasta luego. Di «Hermes» cuando me necesites."), false);
+            return;
+        }
+        // En silencio: solo despierta si la llaman por su nombre ("Hermes, ¿cómo estoy?")
+        if (dormida) {
+            if (!conNombre || estado === "hablando") return;
+            dormida = false;
+            if (!conNombre[1].trim()) { tono(true); abrirEscucha(ESCUCHA_MS, tr("Te escucho")); return; }
+            atender(conNombre[1].trim());
+            return;
+        }
+
+        // "Hermes, deja de escuchar" / "Hermes, stop listening": apaga el micrófono; tocar la página la vuelve a encender.
         // Con su nombre funciona siempre; sin nombre, solo si ya la estabas llamando (o en modo conversación).
         // Va antes que "para/stop" porque "stop listening" también empieza con "stop".
         const ordenApagar = conNombre ? conNombre[1]
@@ -2086,13 +2161,13 @@ const NOMBRE_ASISTENTE = "Nova";
         if (ordenApagar && APAGAR.test(ordenApagar)) {
             detenerVoz();
             tono(false);
-            apagar(tr("Nova no está escuchando. Toca la página para volver a activarla."));
+            apagar(tr("Hermes no está escuchando. Toca la página para volver a activarla."));
             hablar(tr("De acuerdo, dejo de escuchar. Toca la pantalla cuando me necesites."));
             esperarPrimerToque();
             return;
         }
 
-        // Interrumpir: "Nova, para" (funciona aunque esté hablando o pensando)
+        // Interrumpir: "Hermes, para" (funciona aunque esté hablando o pensando)
         if (conNombre && PARAR.test(conNombre[1]) && conNombre[1].split(" ").length <= 3) {
             detenerVoz();
             tono(false);
@@ -2120,7 +2195,7 @@ const NOMBRE_ASISTENTE = "Nova";
 
         if (estado !== "esperando") return;
 
-        // Modo conversación: cualquier frase es una pregunta (con o sin "Nova" delante)
+        // Modo conversación: cualquier frase es una pregunta (con o sin "Hermes" delante)
         if (modoLibre) {
             if (PARAR.test(t) && t.split(" ").length <= 2) return;          // "para", "silencio" sueltos
             const conN = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
@@ -2135,30 +2210,38 @@ const NOMBRE_ASISTENTE = "Nova";
         if (!m) return;
         const resto = m[1].trim();
         if (resto.split(" ").filter(Boolean).length >= 2 || comandoRapido(resto)) {
-            atender(resto);                                   // "Nova, ¿cómo estoy?" en una sola frase
+            atender(resto);                                   // "Hermes, ¿cómo estoy?" en una sola frase
         } else {
-            tono(true);                                       // solo dijo "Nova": tono y escucha
+            tono(true);                                       // solo dijo "Hermes": tono y escucha
             abrirEscucha(ESCUCHA_MS, tr("Te escucho"));
         }
     }
 
     function crear() {
         reco = new Reconocimiento();
-        reco.lang = IDIOMA === "en" ? "en-US" : "es-ES";     // escucha en el idioma de la página
+        reco.lang = idiomaReconocimiento();
         reco.continuous = true;
         reco.interimResults = true;
+        reco.maxAlternatives = 3;       // otras transcripciones posibles: Gemini elige la que tiene sentido
         reco.onresult = function (e) {
             let parcial = "";
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                const t = e.results[i][0].transcript;
-                if (e.results[i].isFinal) {
-                    oido.textContent = tr("Oí: «{texto}»", { texto: t.trim() });
-                    procesar(t);
+                const r = e.results[i];
+                const t = r[0].transcript;
+                if (r.isFinal) {
+                    // Mientras Hermes habla o piensa se procesa al instante (para poder decirle "para")
+                    if (estado === "hablando" || estado === "pensando") { procesar(t); continue; }
+                    const alts = [];
+                    for (let k = 1; k < r.length; k++) if (r[k] && r[k].transcript) alts.push(r[k].transcript.trim());
+                    acumular(t, alts);
                 } else {
                     parcial += t;
                 }
             }
-            if (parcial && estado !== "hablando") oido.textContent = tr("Oyendo: «{texto}…»", { texto: parcial.trim() });
+            if (parcial && estado !== "hablando") {
+                oido.textContent = tr("Oyendo: «{texto}…»", { texto: (frase + " " + parcial).trim() });
+                if (pausa) { clearTimeout(pausa); pausa = setTimeout(cerrarFrase, PAUSA_MS); }   // sigue hablando: espera
+            }
         };
         reco.onaudiostart = function () { microListo = true; };
         reco.onerror = function (e) {
@@ -2177,7 +2260,7 @@ const NOMBRE_ASISTENTE = "Nova";
         reco.onend = function () {
             if (!activo) return;
             if (!microListo && ++reintentosSinAudio > 3) {
-                apagar(tr("Toca la página para que Nova empiece a escuchar."));
+                apagar(tr("Toca la página para que Hermes empiece a escuchar."));
                 esperarPrimerToque();
                 return;
             }
@@ -2187,15 +2270,46 @@ const NOMBRE_ASISTENTE = "Nova";
 
     let reintentosSinAudio = 0;
 
+    // Chrome corta la frase en cada pausa ("¿qué hago si..." / "...me duele la cabeza?").
+    // Se juntan los trozos y se responde cuando el astronauta deja de hablar un momento.
+    const PAUSA_MS = 1100;
+    let frase = "";
+    let alternativasFrase = [];
+    let pausa = null;
+    function acumular(t, alts) {
+        frase = (frase + " " + t).trim();
+        if (alts.length) alternativasFrase = alts.map(a => (frase.slice(0, frase.length - t.trim().length) + " " + a).trim());
+        oido.textContent = tr("Oí: «{texto}»", { texto: frase });
+        clearTimeout(pausa);
+        pausa = setTimeout(cerrarFrase, PAUSA_MS);
+    }
+    function cerrarFrase() {
+        clearTimeout(pausa);
+        pausa = null;
+        const t = frase;
+        window.novaAlternativas = alternativasFrase.slice(0, 3);
+        frase = "";
+        alternativasFrase = [];
+        if (t) procesar(t);
+    }
+
+    // Español latino: es-US (o el español del dispositivo, p. ej. es-DO) reconoce mejor que es-ES el acento caribeño
+    function idiomaReconocimiento() {
+        if (IDIOMA === "en") return "en-US";
+        const del = (navigator.languages || [navigator.language || ""]).find(l => /^es-/i.test(l) && !/^es-es$/i.test(l));
+        return del || "es-US";
+    }
+
     function encender(saludar) {
         activo = true;
+        dormida = false;
         reintentosSinAudio = 0;
         asegurarAudio();
         crear();
         arrancar();
         if (saludar) {
             tono(true);
-            decir(tr(modoLibre ? "Hola, soy Nova. Te escucho, pregúntame lo que quieras." : "Hola, soy Nova. Cuando me necesites, di «Oye Nova»."), false);
+            decir(tr(modoLibre ? "Hola, soy Hermes. Te escucho, pregúntame lo que quieras." : "Hola, soy Hermes. Cuando me necesites, di «Oye Hermes»."), false);
         } else {
             aEspera();
         }
@@ -2204,11 +2318,11 @@ const NOMBRE_ASISTENTE = "Nova";
         }, 5000);
     }
 
-    // Sin botón, como Siri o Google: Nova siempre está atenta a «Oye Nova».
+    // Sin botón, como Siri o Google: Hermes siempre está atenta a «Oye Hermes».
     boton.hidden = true;
 
     // Si el navegador no deja usar el micrófono hasta que el usuario interactúe,
-    // Nova se enciende con el primer toque o tecla en cualquier parte de la página.
+    // Hermes se enciende con el primer toque o tecla en cualquier parte de la página.
     function esperarPrimerToque() {
         const alTocar = function () {
             ["pointerdown", "keydown"].forEach(ev => window.removeEventListener(ev, alTocar));
@@ -2221,7 +2335,7 @@ const NOMBRE_ASISTENTE = "Nova";
     encender(false);
 })();
 
-// ===== Orbe de Nova (animación de partículas en canvas) =====
+// ===== Orbe de Hermes (animación de partículas en canvas) =====
 (function () {
     const lienzo = document.getElementById("nova-orbe");
     if (!lienzo || !lienzo.getContext) return;
@@ -2316,7 +2430,7 @@ const NOMBRE_ASISTENTE = "Nova";
     requestAnimationFrame(cuadro);
 })();
 
-// Subtítulo: muestra lo último que dijo Nova (la transcripción completa queda oculta)
+// Subtítulo: muestra lo último que dijo Hermes (la transcripción completa queda oculta)
 (function () {
     const chat = document.getElementById("chat-ia");
     const sub = document.getElementById("nova-subtitulo");
@@ -2325,7 +2439,7 @@ const NOMBRE_ASISTENTE = "Nova";
     new MutationObserver(function () {
         const ultimo = chat.lastElementChild;
         if (!ultimo) return;
-        const t = ultimo.textContent.replace(/^Nova( \([^)]*\))?:\s*/, "").replace(/^(Astronauta|Astronaut):\s*/, tr("Tú: "));
+        const t = ultimo.textContent.replace(/^Hermes( \([^)]*\))?:\s*/, "").replace(/^(Astronauta|Astronaut):\s*/, tr("Tú: "));
         const frases = t.match(/[^.!?]+[.!?]?/g) || [t];
         let corto = frases.slice(0, 2).join("").trim();
         if (corto.length > 150) corto = corto.slice(0, 147).trim() + "…";
@@ -2346,7 +2460,7 @@ const TAREAS = [
     { id: "agua",      texto: "Beber al menos 2 litros de agua", puntos: 10 },
     { id: "ejercicio", texto: "Ejercicio de resistencia (huesos y músculo)", puntos: 25 },
     { id: "dormir",    texto: "Dormir 7 horas o más",            puntos: 15, auto: true },
-    { id: "alerta",    texto: "Responder a una alerta (consultar a Nova)", puntos: 20, auto: true },
+    { id: "alerta",    texto: "Responder a una alerta (consultar a Hermes)", puntos: 20, auto: true },
 ];
 const LOGROS = [
     { id: "primera",   texto: "Primera sincronización",               cumple: j => j.mediciones >= 1 },
@@ -2460,7 +2574,7 @@ function pintarJuego() {
 
 pintarJuego();
 
-// Día de misión visible en el panel de Nova
+// Día de misión visible en el panel de Hermes
 function actualizarDiaNova() {
     const el = document.getElementById("nova-dia");
     if (el) el.textContent = diaActual();
@@ -2545,6 +2659,72 @@ function actualizarDiaNova() {
 
     probar.addEventListener("click", function () {
         asegurarAudio();
-        hablar(tr("Hola, soy Nova. Así sueno con estos ajustes."));
+        hablar(tr("Hola, soy Hermes. Así sueno con estos ajustes."));
     });
+})();
+
+// ===== Navegación por pantallas =====
+// Cada opción del menú (barra lateral o barra superior en el celular) muestra solo su pantalla.
+// La dirección cambia a #vista-... para que «Atrás» del navegador y recargar la página funcionen.
+(function () {
+    const VISTAS = ["panel", "graficos"];
+    // Direcciones de la versión anterior (una pantalla por sección)
+    const ANTIGUAS = { hermes: "panel", wearables: "panel", lecturas: "graficos", indicadores: "graficos" };
+    const migas = document.getElementById("migas-titulo");
+
+    function vistaDeLaDireccion() {
+        let v = (location.hash || "").replace("#vista-", "");
+        v = ANTIGUAS[v] || v;
+        return VISTAS.includes(v) ? v : "panel";
+    }
+
+    function mostrarVista(v, cambiarDireccion) {
+        if (!VISTAS.includes(v)) v = "panel";
+        document.querySelectorAll(".vista").forEach(function (s) { s.hidden = s.dataset.vista !== v; });
+        document.querySelectorAll(".nav-link[data-ir], .nav-pill[data-ir]").forEach(function (a) {
+            const activo = a.dataset.ir === v;
+            a.classList.toggle("activo", activo);
+            if (activo) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+        });
+        const enlace = document.querySelector('.lateral [data-ir="' + v + '"]');
+        if (migas && enlace) migas.textContent = enlace.textContent.trim();
+        if (cambiarDireccion && location.hash !== "#vista-" + v) history.pushState(null, "", "#vista-" + v);
+        window.scrollTo(0, 0);
+        // Los gráficos se dibujan con el ancho de su contenedor: al aparecer se vuelven a dibujar
+        requestAnimationFrame(function () {
+            for (const id in grafUltimo) dibujarGrafico.apply(null, [id].concat(grafUltimo[id]));
+        });
+        if (v !== "graficos") {
+            const aviso = document.getElementById("aviso-procesada");
+            if (aviso) aviso.hidden = true;
+        }
+    }
+
+    // Cualquier elemento con data-ir="vista" lleva a esa pantalla (menú, botones de avisos...)
+    // y data-bajar="id" baja hasta esa tarjeta dentro de la misma pantalla
+    document.addEventListener("click", function (e) {
+        const bajar = e.target.closest && e.target.closest("[data-bajar]");
+        if (bajar) {
+            const destino = document.getElementById(bajar.dataset.bajar);
+            if (destino) destino.scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+        }
+        const el = e.target.closest && e.target.closest("[data-ir]");
+        if (!el) return;
+        e.preventDefault();
+        mostrarVista(el.dataset.ir, true);
+    });
+    window.addEventListener("popstate", function () { mostrarVista(vistaDeLaDireccion(), false); });
+
+    // Al procesar una lectura a mano, se ofrece ir a ver el resultado
+    const formSalud = document.getElementById("form-salud");
+    if (formSalud) formSalud.addEventListener("submit", function () {
+        setTimeout(function () {
+            const aviso = document.getElementById("aviso-procesada");
+            if (aviso && HISTORIAL.length) aviso.hidden = false;
+        }, 300);
+    });
+
+    window.irAVista = function (v) { mostrarVista(v, true); };
+    mostrarVista(vistaDeLaDireccion(), false);
 })();
