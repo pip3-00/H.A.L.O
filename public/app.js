@@ -286,30 +286,19 @@ function registrarLectura(mediciones, resultados, entorno) {
     });
 }
 
+// Un indicador alterado (amarillo o rojo) en las últimas 3 lecturas SEGUIDAS
+// cuenta como tendencia y justifica avisar a Tierra. Una sola lectura amarilla no.
 function detectarTendencias() {
-    const claves = ["sueno", "animo"];
+    const ultimas = HISTORIAL.slice(-UMBRAL_TENDENCIA);
+    if (ultimas.length < UMBRAL_TENDENCIA) return [];
     const alertas = [];
-
-    for (let i = 0; i < claves.length; i++) {
-        const clave = claves[i];
-        const ultimas = HISTORIAL.slice(-UMBRAL_TENDENCIA);
-
-        if (ultimas.length < UMBRAL_TENDENCIA) continue;
-
-        let todasMalas = true;
-        for (let j = 0; j < ultimas.length; j++) {
-            const estado = ultimas[j].resultados[clave].estado;
-            if (estado !== "rojo" && estado !== "amarillo") {
-                todasMalas = false;
-                break;
-            }
-        }
-
-        if (todasMalas) {
-            alertas.push(clave);
-        }
+    for (const clave in INDICADORES) {
+        const todasMalas = ultimas.every(function (h) {
+            const r = h.resultados[clave];
+            return r && (r.estado === "rojo" || r.estado === "amarillo");
+        });
+        if (todasMalas) alertas.push(clave);
     }
-
     return alertas;
 }
 
@@ -856,7 +845,8 @@ function actualizarReloj() {
     relojModoAnterior = modo;
 }
 
-function iniciarAvisoTierra() {
+function iniciarAvisoTierra(motivos) {
+    motivos = motivos || [];
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
     let restante = Math.round(habitat.retrasoSeg * 2);
@@ -868,6 +858,7 @@ function iniciarAvisoTierra() {
         actualizarReloj();
         caja.innerHTML = `<div class="aviso">
         <strong>AVISO ENVIADO A TIERRA</strong> (${habitat.nombre})
+        <p>Motivo: ${motivos.join("; ") || "indicadores alterados"}</p>
         <p>Respuesta estimada en <strong>${formatearTiempo(restante)}</strong></p>
         <p>${habitat.protocolo}</p>
         </div>`;
@@ -891,20 +882,18 @@ function iniciarAvisoTierra() {
 const AGUDOS = ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa"];
 
 function avisarTierra(resultados) {
-    let emergenciaAguda = false;
-    for (let i = 0; i < AGUDOS.length; i++) {
-        if (resultados[AGUDOS[i]].estado === "rojo") {
-            emergenciaAguda = true;
-            break;
-        }
-    }
+    // Rojo en un indicador agudo: aviso inmediato
+    const agudos = AGUDOS.filter(k => resultados[k] && resultados[k].estado === "rojo");
+    // Cualquier indicador alterado 3 lecturas seguidas: aviso por tendencia
+    const tendencias = detectarTendencias().filter(k => !agudos.includes(k));
 
-    const tendencias = detectarTendencias();
+    const motivos = agudos.map(k => `${NOMBRES[k].nombre.toLowerCase()} en alerta`)
+        .concat(tendencias.map(k => `${NOMBRES[k].nombre.toLowerCase()} alterado/a en ${UMBRAL_TENDENCIA} lecturas seguidas`));
 
-    if ((emergenciaAguda || tendencias.length > 0) && estadoAnterior !== "alerta-enviada") {
-        iniciarAvisoTierra();
+    if (motivos.length > 0 && estadoAnterior !== "alerta-enviada") {
+        iniciarAvisoTierra(motivos);
         estadoAnterior = "alerta-enviada";
-    } else if (!emergenciaAguda && tendencias.length === 0) {
+    } else if (motivos.length === 0) {
         estadoAnterior = null;
         relojTierra = null;
     }
