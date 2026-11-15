@@ -20,6 +20,7 @@
             <span class="nav-titulo">General</span>
             <a class="nav-link activo" href="#vista-panel" data-ir="panel">Panel</a>
             <a class="nav-link" href="#vista-graficos" data-ir="graficos">Gráficos</a>
+            <a class="nav-link nav-mision" href="#vista-mision" data-ir="mision" data-titulo="Misión salud"><span>Misión salud</span> <span class="nav-insignia" id="nav-nivel"></span></a>
             <button type="button" class="nav-link nav-ajustes" data-abrir-ajustes>⚙ Ajustes</button>
         </nav>
         <div class="lateral-nota mt-auto">
@@ -46,6 +47,7 @@
         <nav class="nav-movil d-lg-none" aria-label="Secciones">
             <a class="nav-pill activo" href="#vista-panel" data-ir="panel">Panel</a>
             <a class="nav-pill" href="#vista-graficos" data-ir="graficos">Gráficos</a>
+            <a class="nav-pill" href="#vista-mision" data-ir="mision">Misión salud</a>
         </nav>
 
         <!-- Los avisos a Tierra se ven en todas las pantallas -->
@@ -128,10 +130,14 @@
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-md-6 col-xl-4"><div id="panel-juego" class="h-100"></div></div>
-                <div class="col-md-6 col-xl-4"><div id="panel-entorno" class="h-100"></div></div>
-                <div class="col-md-12 col-xl-4"><div id="panel-base" class="h-100"></div></div>
+                <div class="col-md-6"><div id="panel-entorno" class="h-100"></div></div>
+                <div class="col-md-6"><div id="panel-base" class="h-100"></div></div>
             </div>
+        </section>
+
+        <!-- Misión salud: gamificación -->
+        <section class="vista vista-estrecha" data-vista="mision" hidden>
+            <div id="panel-juego"></div>
         </section>
 
         <!-- Gráficos: gráficas, lecturas e indicadores -->

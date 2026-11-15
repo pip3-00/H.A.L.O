@@ -301,6 +301,8 @@ const EN_TEXTOS = {
     // --- Misión salud ---
     "🏅 Logro desbloqueado: ": "🏅 Achievement unlocked: ",
     "Misión salud": "Health mission",
+    "Nv. {n}": "Lv. {n}",
+    "{p} puntos · {n} de {total} tareas de hoy": "{p} points · {n} of {total} tasks today",
     "Nivel {n}": "Level {n}",
     "Cada {n} puntos subes de nivel": "Every {n} points you level up",
     "Puntos totales": "Total points",

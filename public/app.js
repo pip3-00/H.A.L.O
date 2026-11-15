@@ -2620,6 +2620,11 @@ function pintarJuego() {
     const avance = Math.round(puntosHoy / puntosPosibles * 100);
     const nivel = Math.floor(juego.puntos / PUNTOS_POR_NIVEL) + 1;
     const ganados = LOGROS.filter(l => juego.logros[l.id]).length;
+    const insignia = document.getElementById("nav-nivel");
+    if (insignia) {
+        insignia.textContent = tr("Nv. {n}", { n: nivel });
+        insignia.title = tr("{p} puntos · {n} de {total} tareas de hoy", { p: juego.puntos, n: hechas.length, total: TAREAS.length });
+    }
     caja.innerHTML = `<div class="tarjeta-entorno juego h-100">
         <div class="juego-cabecera">
             <h3>${tr("Misión salud")}</h3>
@@ -2749,7 +2754,7 @@ function actualizarDiaNova() {
 // Cada opción del menú (barra lateral o barra superior en el celular) muestra solo su pantalla.
 // La dirección cambia a #vista-... para que «Atrás» del navegador y recargar la página funcionen.
 (function () {
-    const VISTAS = ["panel", "graficos"];
+    const VISTAS = ["panel", "graficos", "mision"];
     // Direcciones de la versión anterior (una pantalla por sección)
     const ANTIGUAS = { hermes: "panel", wearables: "panel", lecturas: "graficos", indicadores: "graficos" };
     const migas = document.getElementById("migas-titulo");
@@ -2769,7 +2774,7 @@ function actualizarDiaNova() {
             if (activo) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
         });
         const enlace = document.querySelector('.lateral [data-ir="' + v + '"]');
-        if (migas && enlace) migas.textContent = enlace.textContent.trim();
+        if (migas && enlace) migas.textContent = enlace.dataset.titulo ? tr(enlace.dataset.titulo) : enlace.textContent.trim();
         if (cambiarDireccion && location.hash !== "#vista-" + v) history.pushState(null, "", "#vista-" + v);
         window.scrollTo(0, 0);
         // Los gráficos se dibujan con el ancho de su contenedor: al aparecer se vuelven a dibujar
