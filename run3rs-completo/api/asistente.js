@@ -34,17 +34,20 @@ function respuestaLocal(m) {
 }
 
 function construirPrompt(pregunta, m, e) {
-    return `Eres un asistente de salud a bordo para astronautas en misiones de larga duración.
-El astronauta no es médico: responde en español, con lenguaje simple, en máximo 6 oraciones.
-Indica (1) qué puede estar pasando, (2) qué hacer ahora, (3) cuándo avisar a Tierra.
-No des diagnósticos definitivos. Si faltan datos, dilo.
+    return `Te llamas Nova y eres la asistente de salud a bordo de astronautas en misiones de larga duración.
+Tu respuesta se LEE EN VOZ ALTA: habla como en una conversación, en español simple, con 2 o 3 frases cortas como máximo.
+Reglas de estilo:
+- No uses listas, viñetas, símbolos ni formato.
+- No repitas todas las cifras. Si todo está dentro de rango, di algo como "Tus parámetros están normales" y, si aplica, que se mantienen estables. Cita un valor solo si la pregunta lo pide o si es el que está alterado.
+- Si hay algo alterado: dilo en una frase, di qué hacer ahora en otra y, solo si es necesario, cuándo avisar a Tierra.
+- No des diagnósticos definitivos ni recetes medicamentos. Si faltan datos, dilo brevemente.
 
-Mediciones del astronauta: ${JSON.stringify(m)}
+Datos para tu análisis (no los recites):
+Mediciones actuales: ${JSON.stringify(m)}
 Rangos de referencia: ${JSON.stringify(RANGOS)}
 Entorno (hábitat, día de misión, radiación acumulada, pérdida ósea estimada): ${JSON.stringify({ ...e, historial: undefined })}
-Historial de lecturas previas (de la más antigua a la más reciente, cada una con su día de misión y estado por indicador): ${JSON.stringify(e.historial || [])}
-
-Basa tu respuesta en el historial: compara la lectura actual con las anteriores, señala tendencias (sube, baja, se mantiene) citando valores y días concretos. Si hay menos de 3 lecturas, dilo y no inventes tendencias.
+Historial de lecturas previas (de la más antigua a la más reciente): ${JSON.stringify(e.historial || [])}
+Usa el historial para decir si algo sube, baja o se mantiene, sin citar todos los valores. Si hay menos de 3 lecturas, no inventes tendencias.
 
 Pregunta del astronauta: ${pregunta || "Evalúa mi estado de salud actual."}`;
 }
@@ -91,7 +94,7 @@ module.exports = async (req, res) => {
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: construirPrompt(pregunta, m, e) }] }],
                     generationConfig: {
-                        maxOutputTokens: 400,
+                        maxOutputTokens: 220,
                         temperature: 0.4
                     }
                 })

@@ -197,7 +197,7 @@ function sincronizarCaras() {
     const estilo = document.createElement("style");
     estilo.textContent = `
         #animo-caras { display:flex !important; gap:8px; margin-top:4px; position:relative; z-index:2; }
-        #animo-caras button { font-size:26px !important; line-height:1 !important; padding:6px 8px !important; width:auto !important;
+        #animo-caras button { font-size:22px !important; line-height:1 !important; padding:7px 0 !important; flex:1 1 0; min-width:0; width:auto !important;
             border-radius:12px !important; border:2px solid #3a4160 !important; background:transparent !important;
             cursor:pointer !important; pointer-events:auto !important; transition:transform .1s; }
         #animo-caras button.cara-activa { background:#2c4a6e !important; border-color:#38bdf8 !important; transform:scale(1.15); }`;
@@ -779,7 +779,7 @@ function actualizarBase(mediciones, resultados) {
         const mensaje = document.createElement("p");
         mensaje.textContent = "Nova (línea base): " + texto;
         document.getElementById("chat-ia").appendChild(mensaje);
-        hablar(texto, true);
+        hablarAlerta(texto);
     }
     return base;
 }
@@ -861,7 +861,7 @@ function iniciarAvisoTierra() {
     const caja = document.getElementById("aviso-tierra");
     let restante = Math.round(habitat.retrasoSeg * 2);
 
-    hablar(`Aviso enviado a Tierra desde ${habitat.nombre}. Respuesta estimada en ${tiempoHablado(restante)}. ${habitat.protocolo}`, true);
+    hablarAlerta(`Aviso enviado a Tierra. Respuesta estimada en ${tiempoHablado(restante)}.`);
 
     function pintar() {
         relojTierra = { restante: restante };
@@ -964,6 +964,41 @@ if ("speechSynthesis" in window) {
     prepararSelectorVoz();
 }
 
+// Las alertas automáticas NUNCA interrumpen una conversación: si Nova está hablando,
+// escuchando o pensando, esperan y se dicen después.
+const alertasPendientes = [];
+
+function conversacionOcupada() {
+    const hablando = "speechSynthesis" in window && speechSynthesis.speaking;
+    return hablando || (typeof window.novaOcupada === "function" && window.novaOcupada());
+}
+
+function hablarAlerta(texto) {
+    if (conversacionOcupada()) {
+        alertasPendientes.push(texto);
+        return;
+    }
+    hablar(texto, true);   // encolada: no corta nada
+}
+
+function vaciarAlertasPendientes() {
+    if (alertasPendientes.length === 0) return false;
+    const texto = alertasPendientes.splice(0).slice(-2).join(" ");   // solo lo más reciente
+    hablar(texto, true);
+    return true;
+}
+
+// Para la voz, las respuestas largas se resumen a las primeras frases (en pantalla va completa)
+function resumenParaVoz(texto) {
+    const frases = (texto || "").replace(/\s+/g, " ").match(/[^.!?]+[.!?]?/g) || [texto];
+    let salida = "";
+    for (const f of frases.slice(0, 3)) {
+        if ((salida + f).length > 320) break;
+        salida += f;
+    }
+    return (salida || frases[0] || "").trim();
+}
+
 function hablar(texto, encolar = false) {
     if (!("speechSynthesis" in window)) return;
     if (!encolar) speechSynthesis.cancel();   // corta lo que suene, salvo que se encole
@@ -1009,8 +1044,14 @@ function decirFrase(texto, voz, esReintento) {
 
 const alertasAnunciadas = {};
 
+function primeraFrase(t) {
+    const m = (t || "").match(/^[^.!?]+[.!?]?/);
+    return m ? m[0].trim() : "";
+}
+
 function anunciarAnomalias(resultados) {
-    const textos = [];
+    const textos = [];      // texto completo (pantalla)
+    const voz = [];         // texto corto (voz): estado + una acción
 
     for (const clave in resultados) {
         const r = resultados[clave];
@@ -1032,29 +1073,87 @@ function anunciarAnomalias(resultados) {
             ? "en nivel de alerta"
             : (masculino ? "moderadamente alterado" : "moderadamente alterada");
 
-        textos.push(`Tu ${NOMBRES[clave].nombre.toLowerCase()} está ${grado}. ${m.pasa} ${m.hacer}`);
+        const cabecera = `Tu ${NOMBRES[clave].nombre.toLowerCase()} está ${grado}.`;
+        textos.push(`${cabecera} ${m.pasa} ${m.hacer}`);
+        voz.push({ grave: r.estado === "rojo" ? 0 : 1, texto: `${cabecera} ${primeraFrase(m.hacer)}` });
     }
 
     if (textos.length === 0) return;
 
-    const texto = textos.join(" ");
     const mensaje = document.createElement("p");
-    mensaje.textContent = "Nova (alerta automática): " + texto;
+    mensaje.textContent = "Nova (alerta automática): " + textos.join(" ");
     document.getElementById("chat-ia").appendChild(mensaje);
-    hablar(texto);
+
+    // Por voz: lo más grave primero, máximo dos avisos; el resto se remite al panel
+    voz.sort((a, b) => a.grave - b.grave);
+    let habla = voz.slice(0, 2).map(v => v.texto).join(" ");
+    if (voz.length > 2) habla += " Hay más indicadores alterados, revisa el panel.";
+    hablarAlerta(habla);
 }
 
 // ===== 3c. FLUJO PRINCIPAL =====
 
+// La lógica de salud vive en Python (api/evaluar.py). Si el servidor no responde
+// (sin red, o abriendo la página sin servidor), se usa el mismo cálculo en el navegador.
+let fallosServidor = 0;
+let secuenciaLectura = 0;
+
+function servidorDisponible() {
+    return typeof fetch === "function" && location.protocol.startsWith("http") && fallosServidor < 3;
+}
+
+async function evaluarEnPython(mediciones) {
+    const r = await fetch("/api/evaluar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: (typeof AbortSignal !== "undefined" && AbortSignal.timeout) ? AbortSignal.timeout(2500) : undefined,
+        body: JSON.stringify({
+            mediciones: mediciones,
+            habitat: document.getElementById("habitat").value,
+            diaMision: Number(document.getElementById("dia-mision").value) || 1,
+        }),
+    });
+    const datos = JSON.parse(await r.text());
+    if (!r.ok || !datos.resultados || !datos.entorno || !datos.general) throw new Error("respuesta inválida");
+    for (const clave in mediciones) {
+        if (!datos.resultados[clave] || !(datos.resultados[clave].estado in PRIORIDAD)) throw new Error("respuesta incompleta");
+    }
+    return datos;
+}
+
+function marcarFuente(fuente) {
+    const el = document.getElementById("fuente-logica");
+    if (!el) return;
+    el.textContent = fuente === "python" ? "Lógica: Python (servidor)" : "Lógica: respaldo local";
+    el.dataset.fuente = fuente;
+}
+
 function procesar() {
     const mediciones = leerMediciones();
-    const resultados = evaluarTodo(mediciones);
-    const general = peorEstado(resultados);
-    console.table(resultados);
-    console.log("Estado general:", general);
-    mostrarResultados(mediciones, resultados, general);
+    const turno = ++secuenciaLectura;
 
-    const entorno = calcularEntorno();
+    const local = function () {
+        const resultados = evaluarTodo(mediciones);
+        aplicarLectura(mediciones, resultados, peorEstado(resultados), calcularEntorno(), "local");
+    };
+
+    if (!servidorDisponible()) { local(); return; }
+
+    evaluarEnPython(mediciones).then(function (d) {
+        fallosServidor = 0;
+        if (turno !== secuenciaLectura) return;          // llegó tarde: ya hay una lectura más nueva
+        aplicarLectura(mediciones, d.resultados, d.general, d.entorno, "python");
+    }).catch(function () {
+        fallosServidor++;
+        if (fallosServidor >= 3) setTimeout(function () { fallosServidor = 0; }, 60000);   // reintenta en 1 min
+        if (turno !== secuenciaLectura) return;
+        local();
+    });
+}
+
+function aplicarLectura(mediciones, resultados, general, entorno, fuente) {
+    marcarFuente(fuente);
+    mostrarResultados(mediciones, resultados, general);
     mostrarEntorno(entorno);
 
     registrarLectura(mediciones, resultados, entorno);
@@ -1065,6 +1164,7 @@ function procesar() {
 
     ultimoReloj = { mediciones: mediciones, resultados: resultados };
     actualizarReloj();
+
 }
 
 // ===== 4. CONEXIONES =====
@@ -1202,27 +1302,22 @@ async function consultarAsistente(pregunta, porVoz = false) {
         // Se lee como texto primero: si el servidor responde vacío o con HTML, el error dice qué pasó.
         // Un solo reintento automático ante respuestas vacías o errores 5xx (arranques en frío).
         let respuesta, textoRespuesta, datos;
-        for (let intento = 1; intento <= 2; intento++) {
-            respuesta = await fetch(
-                "/api/asistente",
-                {
-                    signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined,
+        const RUTAS = ["/api/nova", "/api/asistente"];      // Python primero; la versión anterior queda de respaldo
+        for (let intento = 0; intento < RUTAS.length; intento++) {
+            try {
+                respuesta = await fetch(RUTAS[intento], {
+                    signal: (typeof AbortSignal !== "undefined" && AbortSignal.timeout) ? AbortSignal.timeout(20000) : undefined,
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        pregunta: pregunta,
-                        contexto: contexto
-                    })
-                }
-            );
-            textoRespuesta = await respuesta.text();
-            if ((textoRespuesta.trim() === "" || respuesta.status >= 500) && intento === 1) {
-                await new Promise(r => setTimeout(r, 1200));
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pregunta: pregunta, contexto: contexto }),
+                });
+                textoRespuesta = await respuesta.text();
+            } catch (errorRed) {
+                if (intento === RUTAS.length - 1) throw errorRed;
                 continue;
             }
-            break;
+            const valida = respuesta.ok && textoRespuesta.trim().startsWith("{");
+            if (valida || intento === RUTAS.length - 1) break;
         }
 
         try {
@@ -1241,7 +1336,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
         }
 
         mensajeIA.textContent = "Nova: " + datos.respuesta;
-        if (porVoz) hablar(datos.respuesta);   // si preguntaste hablando, responde hablando
+        if (porVoz) hablar(resumenParaVoz(datos.respuesta));   // si preguntaste hablando, responde hablando
 
     } catch (error) {
 
@@ -1365,12 +1460,28 @@ const NOMBRE_ASISTENTE = "Nova";
         pausar();
         ponerEstado("pensando", "");
         await consultarAsistente(pregunta, true);
-        alTerminarDeHablar(function () {
-            if (!activo) return;
-            ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
-            reanudar();
-        });
+        alTerminarDeHablar(volverAEsperar);
     }
+
+    // Tras hablar: si hubo alertas en espera, se dicen ahora (sin cortar) y luego vuelve a escuchar
+    function volverAEsperar() {
+        if (!activo) return;
+        if (vaciarAlertasPendientes()) {
+            alTerminarDeHablar(function () {
+                if (!activo) return;
+                ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
+                reanudar();
+            });
+            return;
+        }
+        ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
+        reanudar();
+    }
+
+    // Las alertas esperan mientras Nova conversa
+    window.novaOcupada = function () {
+        return activo && (pausado || estado === "escuchando" || estado === "pensando");
+    };
 
     function procesar(texto) {
         if (pausado || estado === "pensando") return;
@@ -1398,7 +1509,10 @@ const NOMBRE_ASISTENTE = "Nova";
                 ponerEstado("escuchando", "Haz tu pregunta");
                 reanudar();
                 temporizador = setTimeout(function () {
-                    if (estado === "escuchando") ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
+                    if (estado === "escuchando") {
+                        ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
+                        vaciarAlertasPendientes();
+                    }
                 }, 9000);
             });
         }

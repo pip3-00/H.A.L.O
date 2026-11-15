@@ -5,12 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <title>monitoreo</title>
+    <title>run3rs · Monitor de salud</title>
 </head>
 
 <body>
     <header>
-        <h1>Monitor de Salud</h1>
+        <div class="marca"><span class="marca-punto"></span><h1>run3rs</h1><span class="marca-sub">Monitor de salud del astronauta</span></div>
+        <span id="fuente-logica" data-fuente="espera">Lógica: en espera</span>
+        <span class="marca-nota">Prototipo · datos simulados · no es un dispositivo médico</span>
     </header>
 
     <main>
@@ -29,12 +31,12 @@
                     <option value="marte" selected>Base en Marte</option>
                 </select>
             </div>
-            <select id="escenario">
+            <div class="campo"><label for="escenario">Escenario simulado</label><select id="escenario">
                 <option value="normal">Normal</option>
                 <option value="fiebre">Fiebre</option>
                 <option value="hipotension">Hipotensión</option>
                 <option value="hipoglucemia">Hipoglucemia</option>
-            </select>
+            </select></div>
             <button type="button" id="btn-vivo">Iniciar datos simulados</button>
             <form id="form-salud">
                 <div class="campo">
@@ -66,6 +68,7 @@
                     <input type="hidden" id="animo">
                     <div id="animo-caras" role="radiogroup" aria-label="Estado de ánimo"></div>
                 </div>
+            <button type="submit" id="btn-evaluar">Evaluar mediciones</button>
             </form>
         </section>
 
