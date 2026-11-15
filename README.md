@@ -2,6 +2,8 @@
 
 Proyecto del **NASA Space Apps Challenge 2026** (INTEC, Santo Domingo).
 
+Demo en vercel: lasana00-hdg6kaujl-vertex-code.vercel.app
+
 En misiones largas, la radiación espacial, el aislamiento, la gravedad alterada y un entorno cerrado pueden provocar cambios inmunes, pérdida ósea, eventos cardiovasculares y problemas de salud conductual. Con Tierra a minutos de distancia, el astronauta es quien debe detectar esos cambios en sí mismo.
 
 **run3rs** reúne indicadores de salud, los evalúa contra rangos de referencia y le dice al astronauta qué pasa, qué hacer y cuándo avisar a Tierra.
