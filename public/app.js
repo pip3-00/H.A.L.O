@@ -1844,6 +1844,26 @@ const NOMBRE_ASISTENTE = "Nova";
     let temporizador = null;
     let ultimaRespuesta = "";
     let microListo = false;
+    // Modo conversación: responde a todo lo que oiga, sin tener que decir "Nova".
+    // Modo nombre: solo responde cuando dices "Nova" (útil en lugares con mucha gente o ruido).
+    let modoLibre = true;
+    try { modoLibre = localStorage.getItem("run3rs-nova-modo") !== "nombre"; } catch (_) {}
+    const botonModo = document.createElement("button");
+    botonModo.type = "button";
+    botonModo.id = "btn-modo-nova";
+    function pintarModo() {
+        botonModo.textContent = modoLibre ? "💬 Modo conversación (sin decir «Nova»)" : "🏷 Modo nombre (di «Nova» primero)";
+        botonModo.title = modoLibre ? "Responde a todo lo que oye. Cámbialo si hay mucho ruido o gente hablando." : "Solo responde cuando dices «Nova».";
+    }
+    botonModo.addEventListener("click", function () {
+        modoLibre = !modoLibre;
+        try { localStorage.setItem("run3rs-nova-modo", modoLibre ? "libre" : "nombre"); } catch (_) {}
+        pintarModo();
+        if (activo) aEspera();
+    });
+    pintarModo();
+    const secundarios = document.querySelector(".nova-secundarios");
+    if (secundarios) secundarios.insertAdjacentElement("afterbegin", botonModo);
     // Línea que muestra lo que el micrófono está oyendo (para saber si de verdad te escucha)
     const oido = document.createElement("p");
     oido.id = "nova-oido";
@@ -1898,7 +1918,7 @@ const NOMBRE_ASISTENTE = "Nova";
     function aEspera() {
         clearTimeout(temporizador);
         if (!activo) return;
-        ponerEstado("esperando", "Di «" + NOMBRE_ASISTENTE + "» y tu pregunta");
+        ponerEstado("esperando", modoLibre ? "Háblame cuando quieras" : "Di «" + NOMBRE_ASISTENTE + "» y tu pregunta");
         vaciarAlertasPendientes();
     }
 
@@ -2023,6 +2043,13 @@ const NOMBRE_ASISTENTE = "Nova";
             return;
         }
 
+        if (modoLibre && (estado === "hablando" || estado === "pensando") && PARAR.test(t) && t.split(" ").length <= 2) {
+            detenerVoz();
+            tono(false);
+            aEspera();
+            return;
+        }
+
         // Mientras habla o piensa, ignora lo que oye (es su propia voz)
         if (estado === "hablando" || estado === "pensando" || novaEstaHablando()) return;
 
@@ -2035,6 +2062,18 @@ const NOMBRE_ASISTENTE = "Nova";
         }
 
         if (estado !== "esperando") return;
+
+        // Modo conversación: cualquier frase es una pregunta (con o sin "Nova" delante)
+        if (modoLibre) {
+            if (PARAR.test(t) && t.split(" ").length <= 2) return;          // "para", "silencio" sueltos
+            const conN = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
+            const pregunta = (conN ? conN[1] : t).trim();
+            if (!pregunta) { tono(true); abrirEscucha(ESCUCHA_MS, "Te escucho"); return; }
+            if (pregunta.split(" ").length < 2 && !comandoRapido(pregunta) && !respuestaCharla(pregunta)) return; // ruido suelto
+            atender(pregunta);
+            return;
+        }
+
         const m = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
         if (!m) return;
         const resto = m[1].trim();
@@ -2085,7 +2124,7 @@ const NOMBRE_ASISTENTE = "Nova";
         crear();
         arrancar();
         tono(true);
-        decir("Hola, soy " + NOMBRE_ASISTENTE + ". Cuando me necesites, di mi nombre.", false);
+        decir(modoLibre ? "Hola, soy " + NOMBRE_ASISTENTE + ". Te escucho, pregúntame lo que quieras." : "Hola, soy " + NOMBRE_ASISTENTE + ". Cuando me necesites, di mi nombre.", false);
         setTimeout(function () {
             if (activo && !microListo) estadoEl.textContent = "No recibo audio del micrófono. Revisa el permiso (candado junto a la dirección) y que el micrófono correcto esté seleccionado.";
         }, 5000);
