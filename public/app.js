@@ -250,160 +250,218 @@ function detectarTendencias() {
 }
 
 
-function dibujarGrafico(idCanvas, dias, series) {
+// ===== 3b. GRÁFICOS (dos grupos, eje Y real, banda normal, chips interactivos) =====
+
+const grafFoco = {};      // idCanvas -> clave enfocada | null (si no existe, usa el foco inicial)
+const grafUltimo = {};    // idCanvas -> argumentos del último dibujo (para redibujar al hacer clic)
+const COLOR_ESTADO = { verde: "#2ecc71", amarillo: "#f1c40f", rojo: "#e74c3c", "sin-dato": "#888" };
+
+function dibujarGrafico(idCanvas, dias, series, opciones) {
+    opciones = opciones || {};
+    grafUltimo[idCanvas] = [dias, series, opciones];
+
     const canvas = document.getElementById(idCanvas);
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    const ancho = canvas.width;
-    const alto = canvas.height;
+    // Nitidez y ancho adaptable (la altura original del canvas se conserva)
+    if (!canvas.dataset.alto) canvas.dataset.alto = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    const ancho = Math.max(280, Math.min((canvas.parentElement && canvas.parentElement.clientWidth) || 700, 900));
+    const alto = Number(canvas.dataset.alto);
+    canvas.style.width = ancho + "px";
+    canvas.style.height = alto + "px";
+    canvas.width = Math.round(ancho * dpr);
+    canvas.height = Math.round(alto * dpr);
+    if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const margenIzquierdo = 50;
-    const margenDerecho = 25;
-    const margenSuperior = 35;
-    const margenInferior = 50;
-
+    const margenIzquierdo = 52, margenDerecho = 48, margenSuperior = 24, margenInferior = 34;
     const areaAncho = ancho - margenIzquierdo - margenDerecho;
     const areaAlto = alto - margenSuperior - margenInferior;
 
-    ctx.clearRect(0, 0, ancho, alto);
+    // Foco: serie con eje propio y banda normal
+    const foco = (idCanvas in grafFoco) ? grafFoco[idCanvas] : (opciones.focoInicial || null);
+    const serieFoco = series.find(x => x.indicador === foco) || null;
+
+    // Escala del eje Y
+    let ejeMin, ejeMax, modoEje;
+    if (serieFoco) {
+        ejeMin = serieFoco.min; ejeMax = serieFoco.max; modoEje = "foco";
+    } else if (opciones.compartido) {
+        ejeMin = Math.min(...series.map(x => x.min));
+        ejeMax = Math.max(...series.map(x => x.max));
+        modoEje = "compartido";
+    } else {
+        ejeMin = 0; ejeMax = 1; modoEje = "relativo";
+    }
+
+    const yDe = (serie, valor) => {
+        let min = ejeMin, max = ejeMax;
+        if (modoEje === "relativo" || (modoEje === "foco" && serie !== serieFoco)) {
+            min = serie.min; max = serie.max;
+        }
+        const t = Math.max(0, Math.min(1, (valor - min) / (max - min)));
+        return alto - margenInferior - t * areaAlto;
+    };
+    const yEje = v => alto - margenInferior - ((v - ejeMin) / (ejeMax - ejeMin)) * areaAlto;
+    const posicionX = i => margenIzquierdo + (i / Math.max(dias.length - 1, 1)) * areaAncho;
 
     // Fondo
+    ctx.clearRect(0, 0, ancho, alto);
     ctx.fillStyle = "#1a1a2e";
     ctx.fillRect(0, 0, ancho, alto);
 
-    // Si no hay datos
+    // Chips (leyenda interactiva con el último valor)
+    pintarChips(idCanvas, series, foco);
+
     if (dias.length === 0) {
-        ctx.fillStyle = "#aaa";
-        ctx.font = "14px Arial";
-        ctx.textAlign = "center";
+        ctx.fillStyle = "#aaa"; ctx.font = "14px Arial"; ctx.textAlign = "center";
         ctx.fillText("No hay datos para mostrar", ancho / 2, alto / 2);
         return;
     }
 
-    // Coordenadas X
-    const posicionX = i =>
-        margenIzquierdo +
-        (i / Math.max(dias.length - 1, 1)) * areaAncho;
+    // Banda de rango normal (solo con foco)
+    if (serieFoco && INDICADORES[serieFoco.indicador]) {
+        const am = INDICADORES[serieFoco.indicador].amarillo;
+        const lo = Math.max(ejeMin, Number.isFinite(am.min) ? am.min : ejeMin);
+        const hi = Math.min(ejeMax, Number.isFinite(am.max) ? am.max : ejeMax);
+        if (hi > lo) {
+            ctx.fillStyle = "rgba(46, 204, 113, 0.13)";
+            ctx.fillRect(margenIzquierdo, yEje(hi), areaAncho, yEje(lo) - yEje(hi));
+            ctx.fillStyle = "rgba(46, 204, 113, 0.8)";
+            ctx.font = "10px Arial"; ctx.textAlign = "right";
+            ctx.fillText("rango normal", ancho - margenDerecho - 4, yEje(hi) + 11);
+        }
+    }
+
+    // Cuadrícula y números del eje Y
+    ctx.font = "11px Arial"; ctx.textAlign = "right";
+    if (modoEje === "relativo") {
+        ctx.strokeStyle = "#2c2c48"; ctx.lineWidth = 1;
+        for (let k = 0; k <= 4; k++) {
+            const y = margenSuperior + (k / 4) * areaAlto;
+            ctx.beginPath(); ctx.moveTo(margenIzquierdo, y); ctx.lineTo(ancho - margenDerecho, y); ctx.stroke();
+        }
+        ctx.fillStyle = "#888";
+        ctx.fillText("alto", margenIzquierdo - 6, margenSuperior + 4);
+        ctx.fillText("bajo", margenIzquierdo - 6, alto - margenInferior + 4);
+    } else {
+        // Marcas "redondas" del eje (p. ej. 50, 100, 150...)
+        const bruto = (ejeMax - ejeMin) / 6;
+        const mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+        const norm = bruto / mag;
+        const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+        for (let v = Math.ceil(ejeMin / paso) * paso; v <= ejeMax + 1e-9; v += paso) {
+            const y = yEje(v);
+            ctx.strokeStyle = "#2c2c48"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(margenIzquierdo, y); ctx.lineTo(ancho - margenDerecho, y); ctx.stroke();
+            ctx.fillStyle = "#aaa";
+            const r = Math.round(v * 10) / 10;
+            ctx.fillText(r, margenIzquierdo - 6, y + 4);
+        }
+        if (serieFoco && serieFoco.unidad) {
+            ctx.fillStyle = "#888"; ctx.textAlign = "left";
+            ctx.fillText(serieFoco.unidad, 6, 12);
+        }
+    }
 
     // Ejes
-    ctx.strokeStyle = "#666";
-    ctx.lineWidth = 1;
-
+    ctx.strokeStyle = "#666"; ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(margenIzquierdo, margenSuperior);
     ctx.lineTo(margenIzquierdo, alto - margenInferior);
     ctx.lineTo(ancho - margenDerecho, alto - margenInferior);
     ctx.stroke();
 
-    // Etiquetas de días
-    ctx.fillStyle = "#aaa";
-    ctx.font = "11px Arial";
-    ctx.textAlign = "center";
-
-
+    // Etiquetas de día (solo cuando cambia)
+    ctx.fillStyle = "#aaa"; ctx.font = "11px Arial"; ctx.textAlign = "center";
     dias.forEach((dia, i) => {
-        if (i > 0 && dia === dias[i - 1]) return;   // solo cuando cambia el día
+        if (i > 0 && dia === dias[i - 1]) return;
         const x = posicionX(i);
-        ctx.fillText("D" + dia, x, alto - margenInferior + 20);
+        ctx.fillText("D" + dia, x, alto - margenInferior + 18);
         if (i > 0) {
             ctx.strokeStyle = "#444";
-            ctx.beginPath();
-            ctx.moveTo(x, margenSuperior);
-            ctx.lineTo(x, alto - margenInferior);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, margenSuperior); ctx.lineTo(x, alto - margenInferior); ctx.stroke();
         }
     });
 
-    // Dibujar series
-    series.forEach(serie => {
+    // Series: primero las no enfocadas (atenuadas), al final la enfocada
+    const orden = series.filter(x => x !== serieFoco);
+    if (serieFoco) orden.push(serieFoco);
 
+    orden.forEach(serie => {
+        const atenuada = serieFoco && serie !== serieFoco;
+        ctx.globalAlpha = atenuada ? 0.28 : 1;
         ctx.strokeStyle = serie.color;
-        ctx.fillStyle = serie.color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = serie === serieFoco ? 2.5 : 2;
 
-        let iniciado = false;
-
+        // Línea (se corta donde no hay dato)
+        let previo = false;
         ctx.beginPath();
-
         serie.datos.forEach((valor, i) => {
-
-            if (valor === null || !Number.isFinite(valor)) {
-                iniciado = false;
-                return;
-            }
-
-            const x = posicionX(i);
-
-            const y = alto - margenInferior -
-                ((valor - serie.min) / (serie.max - serie.min))
-                * areaAlto;
-
-            // Comenzar una línea nueva
-            if (!iniciado) {
-                ctx.moveTo(x, y);
-                iniciado = true;
-            } else {
-                ctx.lineTo(x, y);
-            }
-
-            // Dibujar punto
-            ctx.fillStyle = serie.color;
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.moveTo(x, y);
+            if (valor === null || !Number.isFinite(valor)) { previo = false; return; }
+            const x = posicionX(i), y = yDe(serie, valor);
+            if (!previo) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            previo = true;
         });
-
-        // Dibujar línea
-        // Se dibuja por separado para evitar conexiones incorrectas.
-        let anterior = null;
-
-        ctx.beginPath();
-
-        serie.datos.forEach((valor, i) => {
-            if (valor === null || !Number.isFinite(valor)) {
-                anterior = null;
-                return;
-            }
-
-            const x = posicionX(i);
-            const y = alto - margenInferior -
-                ((valor - serie.min) / (serie.max - serie.min))
-                * areaAlto;
-
-            if (anterior === null) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-
-            anterior = { x, y };
-        });
-
         ctx.stroke();
+
+        // Puntos (con foco: color del semáforo)
+        serie.datos.forEach((valor, i) => {
+            if (valor === null || !Number.isFinite(valor)) return;
+            const x = posicionX(i), y = yDe(serie, valor);
+            let color = serie.color;
+            if (serie === serieFoco && serie.indicador) {
+                color = COLOR_ESTADO[evaluarIndicador(serie.indicador, valor).estado];
+            }
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(x, y, serie === serieFoco ? 3.5 : 2.5, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
     });
 
-    // Leyenda
-    ctx.font = "11px Arial";
-    ctx.textAlign = "left";
-
-    series.forEach((serie, i) => {
-        const columnas = 3;
-        const columna = i % columnas;
-        const fila = Math.floor(i / columnas);
-
-        const x = margenIzquierdo + columna * 210;
-        const y = 12 + fila * 17;
-
-        ctx.fillStyle = serie.color;
-        ctx.fillRect(x, y, 10, 10);
-
-        ctx.fillText(serie.clave, x + 15, y + 9);
-    });
+    // Valor actual junto al último punto de la serie enfocada
+    if (serieFoco) {
+        for (let i = serieFoco.datos.length - 1; i >= 0; i--) {
+            const v = serieFoco.datos[i];
+            if (v === null || !Number.isFinite(v)) continue;
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = "left";
+            ctx.fillText(v, Math.min(posicionX(i) + 7, ancho - margenDerecho + 6), yDe(serieFoco, v) + 4);
+            break;
+        }
+    }
 }
 
+function pintarChips(idCanvas, series, foco) {
+    const canvas = document.getElementById(idCanvas);
+    let caja = document.getElementById("chips-" + idCanvas);
+    if (!caja) {
+        caja = document.createElement("div");
+        caja.id = "chips-" + idCanvas;
+        caja.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;";
+        canvas.parentNode.insertBefore(caja, canvas);
+    }
+    caja.innerHTML = "";
+    series.forEach(serie => {
+        let ultimo = null;
+        for (let i = serie.datos.length - 1; i >= 0; i--) {
+            if (serie.datos[i] !== null && Number.isFinite(serie.datos[i])) { ultimo = serie.datos[i]; break; }
+        }
+        const activo = foco === serie.indicador;
+        const b = document.createElement("button");
+        b.type = "button";
+        b.style.cssText = "display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;cursor:pointer;font-size:12px;color:#fff;background:" +
+            (activo ? "#2c2c48" : "transparent") + ";border:1.5px solid " + serie.color + ";";
+        b.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${serie.color}"></span>` +
+            `${serie.clave}: <b>${ultimo === null ? "--" : ultimo}</b> ${serie.unidad || ""}`;
+        b.title = activo ? "Quitar enfoque" : "Ver con su escala y rango normal";
+        b.addEventListener("click", function () {
+            grafFoco[idCanvas] = activo ? null : serie.indicador;
+            dibujarGrafico(idCanvas, ...grafUltimo[idCanvas]);
+        });
+        caja.appendChild(b);
+    });
+}
 
 function graficarHistorial() {
     const lecturas = HISTORIAL.slice(-30);
@@ -411,18 +469,20 @@ function graficarHistorial() {
     const dias = lecturas.map(h => h.diaMision);
     const col = clave => lecturas.map(h => h.mediciones[clave]);
 
+    // Grupo 1: corazón y glucosa (misma escala real, 30-260)
     dibujarGrafico("grafica-vitales", dias, [
-        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: col("temperatura") },
-        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: col("frecuencia") },
-        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: col("sistolica") },
-        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: col("diastolica") },
-        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: col("glucosa") },
-    ]);
+        { clave: "FC", indicador: "frecuencia", unidad: "lpm", color: "#3498db", min: 30, max: 260, datos: col("frecuencia") },
+        { clave: "Sistólica", indicador: "sistolica", unidad: "mmHg", color: "#2ecc71", min: 30, max: 260, datos: col("sistolica") },
+        { clave: "Diastólica", indicador: "diastolica", unidad: "mmHg", color: "#9b59b6", min: 30, max: 260, datos: col("diastolica") },
+        { clave: "Glucosa", indicador: "glucosa", unidad: "mg/dl", color: "#f39c12", min: 30, max: 260, datos: col("glucosa") },
+    ], { compartido: true });
 
+    // Grupo 2: temperatura, sueño y ánimo (unidades distintas: se ve una a la vez con su eje)
     dibujarGrafico("grafica-bienestar", dias, [
-        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: col("sueno") },
-        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: col("animo") },
-    ]);
+        { clave: "Temp", indicador: "temperatura", unidad: "°C", color: "#e74c3c", min: 34, max: 41, datos: col("temperatura") },
+        { clave: "Sueño", indicador: "sueno", unidad: "h", color: "#1abc9c", min: 0, max: 12, datos: col("sueno") },
+        { clave: "Ánimo", indicador: "animo", unidad: "/5", color: "#e67e22", min: 0, max: 5, datos: col("animo") },
+    ], { compartido: false, focoInicial: "temperatura" });
 }
 
 
@@ -546,7 +606,14 @@ let relojModoAnterior = null;
 
 function actualizarReloj() {
     const cont = document.getElementById("reloj");
-    if (!cont || !ultimoReloj) return;
+    if (!cont) return;
+    if (!ultimoReloj) {
+        cont.className = "reloj reloj-normal";
+        cont.innerHTML = `<div class="reloj-pill">SIN DATOS</div>
+            <div class="reloj-titulo">Esperando mediciones</div>
+            <div class="reloj-texto">Pulsa "Iniciar datos simulados" o envía una medición.</div>`;
+        return;
+    }
     const { mediciones, resultados } = ultimoReloj;
 
     // Indicador más grave (si todo está normal, se muestra la frecuencia cardíaca)
@@ -659,6 +726,60 @@ function avisarTierra(resultados) {
 
 // ===== 3d. VOZ Y ALERTAS AUTOMÁTICAS =====
 
+// Voz: se elige la mejor voz en español disponible (las "Natural", "Google" o "Online"
+// suenan mucho mejor que las locales/robóticas) y el usuario puede cambiarla.
+let vozElegida = null;
+
+function puntajeVoz(v) {
+    const n = v.name.toLowerCase();
+    let p = 0;
+    if (/natural|neural|online/.test(n)) p += 50;
+    if (/google/.test(n)) p += 10;
+    if (/microsoft/.test(n)) p += 20;
+    if (/espeak|compact/.test(n)) p -= 50;
+    if (/es-(mx|us|419|do)/i.test(v.lang)) p += 10;
+    if (v.localService === false) p += 5;
+    return p;
+}
+
+function vocesEspanol() {
+    if (!("speechSynthesis" in window)) return [];
+    return speechSynthesis.getVoices()
+        .filter(v => v.lang.toLowerCase().startsWith("es"))
+        .sort((a, b) => puntajeVoz(b) - puntajeVoz(a));
+}
+
+function prepararSelectorVoz() {
+    if (!("speechSynthesis" in window)) return;
+    const interruptor = document.getElementById("voz-activa");
+    if (!interruptor) return;
+    const voces = vocesEspanol();
+    if (voces.length === 0) return;               // aún no cargan: se reintenta en voiceschanged
+
+    let sel = document.getElementById("voz-elegida");
+    if (!sel) {
+        sel = document.createElement("select");
+        sel.id = "voz-elegida";
+        sel.title = "Voz del asistente";
+        sel.style.marginLeft = "8px";
+        const ancla = interruptor.closest("label") || interruptor;
+        ancla.parentNode.insertBefore(sel, ancla.nextSibling);
+        sel.addEventListener("change", function () {
+            vozElegida = vocesEspanol().find(v => v.name === sel.value) || null;
+            hablar("Hola, esta es mi voz.");
+        });
+    }
+    const actual = sel.value;
+    sel.innerHTML = voces.map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join("");
+    sel.value = actual && voces.some(v => v.name === actual) ? actual : voces[0].name;
+    vozElegida = voces.find(v => v.name === sel.value) || voces[0];
+}
+
+if ("speechSynthesis" in window) {
+    speechSynthesis.addEventListener("voiceschanged", prepararSelectorVoz);
+    prepararSelectorVoz();
+}
+
 function hablar(texto, encolar = false) {
     if (!("speechSynthesis" in window)) return;
     const interruptor = document.getElementById("voz-activa");
@@ -666,14 +787,43 @@ function hablar(texto, encolar = false) {
 
     if (!encolar) speechSynthesis.cancel();   // corta lo que suene, salvo que se encole
 
-    const limpio = texto.replace(/[*_#`]/g, "");
-    const voz = new SpeechSynthesisUtterance(limpio);
-    voz.lang = "es-ES";
+    if (!vozElegida) prepararSelectorVoz();
+    const voz = vozElegida || vocesEspanol()[0] || null;
 
-    const vozEs = speechSynthesis.getVoices().find(v => v.lang.startsWith("es"));
-    if (vozEs) voz.voice = vozEs;
+    // Frases cortas: se entienden mejor y evitan cortes en textos largos
+    const limpio = texto.replace(/[*_#`]/g, "").replace(/\s+/g, " ").trim();
+    const frases = limpio.match(/[^.!?;:]+[.!?;:]?/g) || [limpio];
 
-    speechSynthesis.speak(voz);
+    if (speechSynthesis.paused) speechSynthesis.resume();
+
+    frases.forEach(frase => {
+        const f = frase.trim();
+        if (!f) return;
+        decirFrase(f, voz, false);
+    });
+}
+
+// Chrome puede descartar (por el recolector de basura) o fallar en silencio con ciertas voces:
+// se guarda la referencia mientras suena y, si la voz elegida falla, se reintenta con la voz por defecto.
+const enCurso = new Set();
+
+function decirFrase(texto, voz, esReintento) {
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = voz ? voz.lang : "es-ES";
+    if (voz) u.voice = voz;
+    u.rate = 0.92;
+    u.pitch = 1;
+    u.volume = 1;
+
+    enCurso.add(u);
+    u.onend = function () { enCurso.delete(u); };
+    u.onerror = function (e) {
+        enCurso.delete(u);
+        if (e && (e.error === "canceled" || e.error === "interrupted")) return;   // cortes normales
+        console.warn("Error de voz:", e && e.error, voz && voz.name);
+        if (!esReintento) decirFrase(texto, null, true);
+    };
+    speechSynthesis.speak(u);
 }
 
 const alertasAnunciadas = {};
@@ -745,15 +895,25 @@ formulario.addEventListener("submit", function (evento) {
 
 
 
-// Botón "Ver simulación": muestra/oculta el reloj
+// Botón "Ver simulación": muestra/oculta el reloj (funciona con o sin #reloj-panel)
 const botonReloj = document.getElementById("btn-reloj");
 if (botonReloj) {
+    const relojEl = document.getElementById("reloj");
+    const panelEl = document.getElementById("reloj-panel");
+    let relojVisible = false;
+
+    function aplicarVisibilidadReloj() {
+        relojEl.style.display = relojVisible ? "" : "none";
+        if (panelEl) panelEl.hidden = !relojVisible;
+        botonReloj.textContent = relojVisible ? "Ocultar simulación" : "Ver simulación";
+        if (relojVisible) actualizarReloj();
+    }
+
     botonReloj.addEventListener("click", function () {
-        const panel = document.getElementById("reloj-panel");
-        panel.hidden = !panel.hidden;
-        botonReloj.textContent = panel.hidden ? "Ver simulación" : "Ocultar simulación";
-        if (!panel.hidden) actualizarReloj();
+        relojVisible = !relojVisible;
+        aplicarVisibilidadReloj();
     });
+    aplicarVisibilidadReloj();   // arranca oculto
 }
 
 let temporizador = null;
@@ -811,11 +971,11 @@ async function consultarAsistente(pregunta) {
         mediciones: mediciones,
         resultados: resultados,
         estadoGeneral: TEXTO_ESTADO[general],
-        historial: HISTORIAL.slice(-10).map(h => ({
+        historial: HISTORIAL.slice(-10).map(h =>({
             dia: h.diaMision,
             mediciones: h.mediciones,
             estados: Object.fromEntries(
-                Object.entries(h.resultados).map(([k, v]) => [k, v.estado])
+                Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
             )
         })),
         entorno: {
@@ -884,7 +1044,7 @@ async function consultarAsistente(pregunta) {
 // Conectar formulario del asistente
 
 document.getElementById("formulario-asistente")
-    .addEventListener("submit", async function (evento) {
+    .addEventListener("submit", async function(evento) {
 
         evento.preventDefault();
 
