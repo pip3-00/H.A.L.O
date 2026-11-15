@@ -300,15 +300,14 @@ function dibujarGrafico(idCanvas, dias, series) {
     ctx.font = "11px Arial";
     ctx.textAlign = "center";
 
+    
+        const pasoEtiqueta = Math.ceil(dias.length / 10);
     dias.forEach((dia, i) => {
+        if (i % pasoEtiqueta !== 0) return;
         const x = posicionX(i);
-
-        ctx.fillText(
-            "D" + dia,
-            x,
-            alto - margenInferior + 20
-        );
+        ctx.fillText("#" + dia, x, alto - margenInferior + 20);
     });
+
 
     // Dibujar series
     series.forEach(serie => {
