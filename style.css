@@ -1,45 +1,452 @@
-.general,
-.tarjeta{
+/* ===== Jarvis Biometric Hub — Monitor de Salud (NASA Space Apps, run3rs) =====
+   Solo CSS: no requiere cambios en index.html ni app.js.
+   Reglas de diseño:
+   - Rojo = ALERTA. Ningún elemento decorativo usa rojo.
+   - El estado nunca depende solo del color: el texto ("Alerta", "Atencion") ya viene en el HTML,
+     y cada tarjeta añade un medidor de severidad de 3 segmentos. */
+
+:root {
+    /* Paleta equivalente a la del md (Tailwind slate / blue / emerald / amber / red) */
+    --fondo: #020617;
+    --panel: #0f172a;
+    --panel-2: #1e293b;
+    --borde: #1e293b;
+    --borde-fuerte: #334155;
+    --texto: #f1f5f9;
+    --texto-suave: #94a3b8;
+    --acento: #38bdf8;
+    --acento-azul: #3b82f6;
+
+    --ok: #10b981;     --ok-txt: #6ee7b7;
+    --aviso: #f59e0b;  --aviso-txt: #fcd34d;
+    --alerta: #ef4444; --alerta-txt: #fca5a5;
+    --nodato: #64748b; --nodato-txt: #cbd5e1;
+    --apagado: #1e293b;
+
+    --radio: 14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding-bottom: 7rem;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    line-height: 1.45;
+    color: var(--texto);
+    background:
+        radial-gradient(900px 420px at 85% -5%, rgba(59,130,246,.20), transparent 70%),
+        radial-gradient(700px 360px at 0% 0%, rgba(56,189,248,.12), transparent 70%),
+        var(--fondo);
+    background-attachment: fixed;
+}
+
+/* ---------- Cabecera ---------- */
+header {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.6rem 0.9rem;
-    margin:0.4 0;
-    border-radius: 6px;
-    border-left: 6px solid;
-}
-
-.general{ font-size:1.2rem;
-font-weight: bold;
-}
-
-
-
-.estado-verde    { background: #d1fae5; border-color: #047857; }
-.estado-amarillo { background: #fef3c7; border-color: #b45309; }
-.estado-rojo     { background: #fee2e2; border-color: #b91c1c; }
-.estado-sin-dato { background: #f3f4f6; border-color: #6b7280; }
-
-.tarjeta{
     flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    padding: 1rem 1.5rem;
+    background: rgba(2, 6, 23, .75);
+    border-bottom: 1px solid var(--borde-fuerte);
+    backdrop-filter: blur(6px);
+}
+header h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+header h1::before {
+    content: "";
+    display: inline-block;
+    width: .7rem; height: .7rem;
+    margin-right: .6rem;
+    border-radius: 50%;
+    background: var(--acento);
+    box-shadow: 0 0 12px var(--acento);
+}
+/* Chip del wearable. Texto fijo "simulado": el código lee un Astroskin simulado,
+   un "Conectado" verde sería falso. */
+header::after {
+    content: "Wearable: Astroskin (simulado)";
+    font-size: .75rem;
+    color: var(--texto-suave);
+    padding: .4rem .8rem .4rem 1.8rem;
+    border: 1px solid var(--borde-fuerte);
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at .85rem 50%, var(--aviso) 4px, transparent 5px),
+        #020617;
 }
 
-.mensaje{
-    flex-basis:100%;
-    font-size: 0.95rem;
-    margin-top: 0.3rem;
+/* ---------- Layout: barra de captura arriba, dashboard abajo ---------- */
+main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1.25rem;
 }
 
-
-.mensaje p{margin:0.2rem 0;}
-
-.aviso{
-    background-color: #1e293b;
-    color: #ffff;
-    padding:0.8rem 1rem;
-    margin:0.5rem 0;
-    border-left: 6px solid #b91c1c;
-    border-radius:6px;
+#seccion-formulario,
+#seccion-resultados {
+    background: rgba(15, 23, 42, .85);
+    border: 1px solid var(--borde-fuerte);
+    border-radius: var(--radio);
+    padding: 1.1rem 1.25rem 1.3rem;
+    min-width: 0;
 }
 
-.aviso p {margin:0.3rem 0;}
+h2 {
+    margin: 0 0 .9rem;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--texto-suave);
+}
+h3 {
+    margin: 0 0 .5rem;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--acento);
+}
+
+/* ---------- Formulario como barra de captura (el <form> se "disuelve" en la cuadrícula) ---------- */
+#seccion-formulario {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: .7rem 1rem;
+    align-items: end;
+}
+#seccion-formulario > h2 { grid-column: 1 / -1; margin-bottom: 0; }
+#form-salud { display: contents; }
+
+.campo { display: flex; flex-direction: column; gap: .25rem; margin: 0; }
+label { font-size: .78rem; color: var(--texto-suave); }
+
+input, select {
+    width: 100%;
+    padding: .55rem .65rem;
+    font: inherit;
+    color: var(--texto);
+    background: #020617;
+    border: 1px solid var(--borde-fuerte);
+    border-radius: 8px;
+}
+input:hover, select:hover { border-color: var(--acento-azul); }
+
+input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 3px solid var(--acento);
+    outline-offset: 2px;
+}
+
+/* ---------- Botones ---------- */
+button {
+    font: inherit;
+    font-weight: 700;
+    color: #04121f;
+    background: var(--acento);
+    border: 0;
+    border-radius: 8px;
+    padding: .6rem .9rem;
+    margin: 0;
+    cursor: pointer;
+    transition: filter .15s, transform .05s;
+}
+button:hover  { filter: brightness(1.12); }
+button:active { transform: translateY(1px); }
+
+#btn-vivo     { background: #6ee7b7; }
+#btn-graficar { background: #fcd34d; justify-self: start; }
+
+/* ---------- Resultados: rejilla de 2 columnas para tarjetas + gráficas ---------- */
+#seccion-resultados {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem 1.25rem;
+    align-content: start;
+}
+#seccion-resultados > * { grid-column: 1 / -1; }
+#seccion-resultados > h2           { grid-row: 1; margin: 0; }
+#aviso-tierra                      { grid-row: 2; }
+#resultado                         { grid-row: 3; }
+#panel-entorno                     { grid-row: 4; }
+#btn-graficar                      { grid-row: 5; }
+#seccion-resultados > h3:nth-of-type(1)     { grid-row: 6; grid-column: 1; margin: .4rem 0 0; }
+#seccion-resultados > canvas:nth-of-type(1) { grid-row: 7; grid-column: 1; }
+#seccion-resultados > h3:nth-of-type(2)     { grid-row: 6; grid-column: 2; margin: .4rem 0 0; }
+#seccion-resultados > canvas:nth-of-type(2) { grid-row: 7; grid-column: 2; }
+
+#aviso-tierra:empty { display: none; }
+
+/* ---------- Tarjetas de indicador (estilo Jarvis) ---------- */
+#resultado {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+    align-items: start;
+}
+
+.general,
+.tarjeta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .35rem .75rem;
+    margin: 0;
+    padding: .9rem 1rem;
+    color: var(--texto);
+    background: linear-gradient(180deg, #111c33, #0b1324);
+    border: 1px solid var(--borde-fuerte);
+    border-left: 5px solid var(--nodato);
+    border-radius: var(--radio);
+}
+
+/* Etiqueta pequeña en mayúsculas */
+.tarjeta > strong {
+    order: 0;
+    flex: 1 1 100%;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--texto-suave);
+}
+/* Valor grande */
+.tarjeta > span:nth-of-type(1) {
+    order: 1;
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -.01em;
+}
+/* Estado como pastilla */
+.tarjeta > span:nth-of-type(2) {
+    order: 1;
+    font-size: .78rem;
+    font-weight: 700;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+/* Medidor de severidad: 3 segmentos (no es el valor medido) */
+.tarjeta::after {
+    content: "";
+    order: 2;
+    flex: 1 1 100%;
+    height: 6px;
+    margin-top: .35rem;
+    border-radius: 3px;
+    background: linear-gradient(90deg,
+        var(--s1) 0 32%, transparent 32% 34%,
+        var(--s2) 34% 66%, transparent 66% 68%,
+        var(--s3) 68% 100%);
+}
+.mensaje {
+    order: 3;
+    flex: 1 1 100%;
+    margin-top: .4rem;
+    padding-top: .55rem;
+    border-top: 1px solid var(--borde-fuerte);
+    font-size: .9rem;
+    color: #e2e8f0;
+}
+.mensaje p { margin: .25rem 0; }
+
+/* Estados (también los usa .general) */
+.estado-verde {
+    border-left-color: var(--ok);
+    --s1: var(--ok); --s2: var(--apagado); --s3: var(--apagado);
+}
+.estado-verde > span:nth-of-type(2) { color: var(--ok-txt); background: rgba(16,185,129,.12); }
+
+.estado-amarillo {
+    border-left-color: var(--aviso);
+    --s1: var(--aviso); --s2: var(--aviso); --s3: var(--apagado);
+    box-shadow: 0 0 0 1px rgba(245,158,11,.25);
+}
+.estado-amarillo > span:nth-of-type(2) { color: var(--aviso-txt); background: rgba(245,158,11,.14); }
+
+.estado-rojo {
+    border-left-color: var(--alerta);
+    --s1: var(--alerta); --s2: var(--alerta); --s3: var(--alerta);
+    box-shadow: 0 0 0 1px rgba(239,68,68,.45), 0 0 22px rgba(239,68,68,.18);
+}
+.estado-rojo > span:nth-of-type(2) { color: var(--alerta-txt); background: rgba(239,68,68,.16); }
+
+.estado-sin-dato {
+    border-left-color: var(--nodato);
+    --s1: var(--apagado); --s2: var(--apagado); --s3: var(--apagado);
+}
+.estado-sin-dato > span:nth-of-type(2) { color: var(--nodato-txt); background: rgba(100,116,139,.15); }
+.estado-sin-dato > span:nth-of-type(1) { color: var(--texto-suave); }
+
+.tarjeta { transition: transform .15s, border-color .15s; }
+.tarjeta:hover { transform: translateY(-2px); border-color: var(--acento-azul); border-left-color: inherit; }
+
+/* Banner de estado general */
+.general {
+    grid-column: 1 / -1;
+    align-items: center;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+.general.estado-verde    { background: linear-gradient(90deg, rgba(16,185,129,.22), #0b1324 70%); }
+.general.estado-amarillo { background: linear-gradient(90deg, rgba(245,158,11,.22), #0b1324 70%); }
+.general.estado-rojo     { background: linear-gradient(90deg, rgba(239,68,68,.28), #0b1324 70%); }
+.general::after { content: none; }
+
+@keyframes pulso-rojo {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(239,68,68,.6), 0 0 0 0 rgba(239,68,68,.5); }
+    50%      { box-shadow: 0 0 0 1px rgba(239,68,68,.6), 0 0 0 7px rgba(239,68,68,0); }
+}
+.general.estado-rojo { animation: pulso-rojo 1.8s ease-in-out infinite; }
+
+/* ---------- Aviso a Tierra ---------- */
+.aviso {
+    margin: 0;
+    padding: .9rem 1.1rem;
+    color: #fff;
+    background: #020617;
+    border: 1px solid var(--borde-fuerte);
+    border-left: 5px solid var(--alerta);
+    border-radius: var(--radio);
+}
+.aviso p { margin: .3rem 0; }
+
+/* ---------- Panel de entorno ---------- */
+.tarjeta-entorno {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: .2rem 1.25rem;
+    padding: .9rem 1.1rem;
+    background: linear-gradient(180deg, #111c33, #0b1324);
+    border: 1px solid var(--borde-fuerte);
+    border-left: 5px solid var(--acento);
+    border-radius: var(--radio);
+}
+.tarjeta-entorno h3 { grid-column: 1 / -1; margin: 0 0 .3rem; }
+.tarjeta-entorno p  { margin: .15rem 0; color: #e2e8f0; }
+
+/* ---------- Gráficas ---------- */
+canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--borde-fuerte);
+    border-radius: var(--radio);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+}
+
+/* ---------- Núcleo "AI" (Jarvis) ----------
+   Reutiliza #btn-asistente: orbe fijo abajo a la derecha. El texto original sigue en el DOM
+   (font-size:0) para lectores de pantalla. Cian y no rojo: el rojo es ALERTA. */
+#btn-asistente {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 30;
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 0;
+    color: transparent;
+    border: 2px solid var(--acento);
+    background: radial-gradient(circle at 35% 30%, #0e7490, #082f49 70%);
+    box-shadow: 0 0 22px rgba(56,189,248,.55), 0 0 0 0 rgba(56,189,248,.35);
+    animation: ondas 2.6s ease-out infinite;
+    transition: filter .2s, transform .15s;
+}
+#btn-asistente::after {
+    content: "AI";
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    color: #e0f2fe;
+}
+#btn-asistente::before {
+    content: "Consultar asistente de a bordo";
+    position: absolute;
+    right: 84px;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--texto);
+    background: #020617;
+    border: 1px solid var(--borde-fuerte);
+    border-radius: 6px;
+    padding: .35rem .6rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+}
+#btn-asistente:hover::before,
+#btn-asistente:focus-visible::before { opacity: 1; }
+
+@keyframes ondas {
+    0%   { box-shadow: 0 0 22px rgba(56,189,248,.55), 0 0 0 0   rgba(56,189,248,.45); }
+    100% { box-shadow: 0 0 22px rgba(56,189,248,.55), 0 0 0 26px rgba(56,189,248,0); }
+}
+
+/* Estados. Sin JS: :hover/:active (escuchando) y contenido de #chat-ia (respondiendo).
+   Para "escuchando"/"procesando" reales, el JS solo tendría que poner data-estado en el botón. */
+#btn-asistente:hover { filter: brightness(1.2); transform: scale(1.06); }
+#btn-asistente:active,
+#btn-asistente[data-estado="escuchando"] {
+    transform: scale(1.12);
+    animation-duration: .9s;
+}
+#btn-asistente[data-estado="procesando"] {
+    animation: none;
+    border-style: dashed;
+    border-color: #fde68a;
+}
+#btn-asistente[data-estado="procesando"]::after { content: "…"; }
+
+body:has(#chat-ia:not(:empty)) #btn-asistente,
+#btn-asistente[data-estado="respondiendo"] {
+    border-color: #34d399;
+    background: radial-gradient(circle at 35% 30%, #047857, #022c22 70%);
+}
+
+#chat-ia:not(:empty) {
+    position: fixed;
+    right: 1.25rem;
+    bottom: 6.25rem;
+    z-index: 29;
+    width: min(380px, calc(100vw - 2.5rem));
+    max-height: 40vh;
+    overflow: auto;
+    padding: .8rem 1rem;
+    background: rgba(15, 23, 42, .96);
+    border: 1px solid var(--acento);
+    border-radius: var(--radio);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    main { padding: .75rem; }
+    #seccion-resultados > h3:nth-of-type(1),
+    #seccion-resultados > canvas:nth-of-type(1),
+    #seccion-resultados > h3:nth-of-type(2),
+    #seccion-resultados > canvas:nth-of-type(2) { grid-column: 1 / -1; }
+    #seccion-resultados > h3:nth-of-type(2)     { grid-row: 8; }
+    #seccion-resultados > canvas:nth-of-type(2) { grid-row: 9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .general.estado-rojo, #btn-asistente { animation: none; }
+    button, .tarjeta { transition: none; }
+}
