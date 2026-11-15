@@ -23,6 +23,7 @@
             <a class="nav-link" href="#tarjeta-wearable">Wearables</a>
             <a class="nav-link" href="#seccion-formulario">Lecturas</a>
             <a class="nav-link" href="#resultado">Indicadores</a>
+            <button type="button" class="nav-link nav-ajustes" data-abrir-ajustes>⚙ Ajustes</button>
         </nav>
         <div class="lateral-nota mt-auto">
             <strong>Prototipo</strong>
@@ -39,6 +40,7 @@
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="marca-nota d-none d-md-inline">Prototipo · datos simulados</span>
+                <button type="button" id="btn-ajustes" class="btn btn-contorno btn-sm" data-abrir-ajustes>⚙ Ajustes</button>
                 <button type="button" id="btn-vivo" class="btn btn-verde btn-sm">Conectar wearable (simulado)</button>
             </div>
         </header>
@@ -94,11 +96,11 @@
 
     <div class="nova-escenario">
         <canvas id="nova-orbe" aria-hidden="true"></canvas>
-        <p id="nova-subtitulo" aria-live="polite">Pulsa «Activar a Nova» y háblale.</p>
+        <p id="nova-subtitulo" aria-live="polite">Di «Oye Nova» y háblale.</p>
     </div>
 
     <div id="controles-voz">
-        <button type="button" id="btn-microfono">🎙 Activar a Nova</button>
+        <button type="button" id="btn-microfono" hidden>🎙 Activar a Nova</button>
         <span id="estado-microfono" aria-live="polite"></span>
     </div>
 
@@ -194,7 +196,7 @@
                     <div class="cab-dash"><div><h2>Indicadores</h2><p>Semáforo por indicador según la última lectura</p></div></div>
                     <details class="guia guia-intro"><summary>ⓘ ¿Por qué se vigilan estos indicadores?</summary>
                 <p>En una misión larga, la radiación, la microgravedad, el aislamiento y un ambiente cerrado cambian tu cuerpo poco a poco: inmunidad, huesos, corazón, sueño y ánimo. Lejos de la Tierra, tú eres quien primero puede notar esos cambios.</p>
-                <p>Llevar el wearable cada día crea tu propia referencia. Así un cambio pequeño se ve a tiempo, antes de volverse una emergencia. Los colores te dicen qué hacer: <b class="c-verde">verde</b> sigue tu rutina, <b class="c-amarillo">amarillo</b> actúa y vuelve a medir, <b class="c-rojo">rojo</b> avisa a un compañero; si es grave o se repite, se avisa a Tierra.</p>
+                <p data-i18n-html="guia-intro-2">Llevar el wearable cada día crea tu propia referencia. Así un cambio pequeño se ve a tiempo, antes de volverse una emergencia. Los colores te dicen qué hacer: <b class="c-verde">verde</b> sigue tu rutina, <b class="c-amarillo">amarillo</b> actúa y vuelve a medir, <b class="c-rojo">rojo</b> avisa a un compañero; si es grave o se repite, se avisa a Tierra.</p>
             </details>
                     <div id="resultado"></div>
                 </section>
@@ -202,6 +204,54 @@
         </div>
     </main>
 </div>
+
+<!-- Ajustes -->
+<dialog id="ajustes" aria-labelledby="ajustes-titulo">
+    <form method="dialog" class="ajustes-caja">
+        <div class="ajustes-cab">
+            <h2 id="ajustes-titulo">Ajustes</h2>
+            <button type="submit" class="ajustes-cerrar" aria-label="Cerrar">✕</button>
+        </div>
+
+        <div class="campo">
+            <label for="ajuste-idioma">Idioma de la página</label>
+            <select id="ajuste-idioma">
+                <option value="auto">Automático (idioma del dispositivo)</option>
+                <option value="es">Español</option>
+                <option value="en">English</option>
+            </select>
+            <p class="ayuda-texto" id="ajuste-idioma-nota"></p>
+        </div>
+
+        <div class="campo">
+            <label for="ajuste-motor">Motor de voz</label>
+            <select id="ajuste-motor">
+                <option value="gemini">Gemini (si falla, usa la del navegador)</option>
+                <option value="navegador">Voz del navegador</option>
+            </select>
+            <p class="ayuda-texto">Gemini suena más natural, pero necesita la clave GEMINI_API_KEY en el servidor.</p>
+        </div>
+
+        <div class="campo" id="campo-voz-navegador">
+            <label for="voz-elegida">Voz del navegador</label>
+            <select id="voz-elegida"></select>
+            <p class="ayuda-texto">Las voces «Natural» u «Online» suenan mejor. En Edge hay más para elegir.</p>
+        </div>
+
+        <div class="campo">
+            <label for="ajuste-velocidad">Velocidad del habla <b id="ajuste-velocidad-valor">1.0x</b></label>
+            <input type="range" id="ajuste-velocidad" min="0.7" max="1.4" step="0.05" value="1">
+            <p class="ayuda-texto">Con la voz de Gemini la velocidad es aproximada.</p>
+        </div>
+
+        <div class="ajustes-pie">
+            <button type="button" id="ajuste-probar">🔊 Probar voz</button>
+            <button type="submit" class="btn btn-verde">Listo</button>
+        </div>
+    </form>
+</dialog>
+
+    <script src="i18n.js"></script>
     <script src="app.js"></script>
 </body>
 

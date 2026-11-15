@@ -39,6 +39,16 @@ def frecuencia_de(mime):
     return 24000
 
 
+def instruccion_voz(idioma, velocidad):
+    """Indicación de estilo para Gemini TTS según el idioma y la velocidad elegidos en Ajustes.
+    Gemini no tiene un control numérico de velocidad: se le pide con palabras."""
+    if idioma == "en":
+        ritmo = "slow, calm" if velocidad < 0.9 else "brisk, fast" if velocidad > 1.15 else "natural"
+        return f"Speak in English with a warm, clear tone, at a {ritmo} conversational pace, without long pauses: "
+    ritmo = "pausado y tranquilo" if velocidad < 0.9 else "rápido" if velocidad > 1.15 else "ágil y natural"
+    return f"Habla en español con tono cálido y claro, a un ritmo {ritmo} de conversación, sin pausas largas: "
+
+
 def responder(cuerpo):
     """Lógica pura: dict de entrada -> (código HTTP, dict de salida)."""
     if not isinstance(cuerpo, dict):
@@ -46,6 +56,11 @@ def responder(cuerpo):
     texto = " ".join(str(cuerpo.get("texto") or "").split())[:MAX_CARACTERES]
     if not texto:
         return 400, {"error": "Falta el texto."}
+    idioma = "en" if cuerpo.get("idioma") == "en" else "es"
+    try:
+        velocidad = min(1.5, max(0.5, float(cuerpo.get("velocidad") or 1)))
+    except (TypeError, ValueError):
+        velocidad = 1.0
 
     clave = os.environ.get("GEMINI_API_KEY")
     if not clave:
@@ -53,7 +68,7 @@ def responder(cuerpo):
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO_VOZ}:generateContent?key={clave}"
     carga = json.dumps({
-        "contents": [{"parts": [{"text": "Lee en español, con tono sereno y claro: " + texto}]}],
+        "contents": [{"parts": [{"text": instruccion_voz(idioma, velocidad) + texto}]}],
         "generationConfig": {
             "responseModalities": ["AUDIO"],
             "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": VOZ}}},

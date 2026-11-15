@@ -409,3 +409,27 @@ button.ayuda { padding: 0 .35rem; margin-left: .3rem; font-size: .8rem; line-hei
 @media (max-width: 575.98px) { #seccion-resultados .tarjeta.estado-amarillo, #seccion-resultados .tarjeta.estado-rojo { grid-column: 1 / -1; } }
 
 #nova-oido { margin: .3rem 0 0; min-height: 1.2em; text-align: center; font-size: .78rem; color: var(--tenue); font-style: italic; }
+
+/* ---------- Ajustes ---------- */
+.lateral .nav-ajustes { background: none; border: 0; text-align: left; width: 100%; font: inherit; font-weight: 500; cursor: pointer; }
+#ajustes {
+    width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+    padding: 0; border: 1px solid var(--borde); border-radius: var(--radio);
+    background: var(--panel); color: var(--texto);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+}
+#ajustes::backdrop { background: rgba(4, 6, 8, .65); backdrop-filter: blur(2px); }
+.ajustes-caja { padding: 1.1rem 1.2rem 1.2rem; }
+.ajustes-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
+.ajustes-cab h2 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+button.ajustes-cerrar { padding: .25rem .6rem; line-height: 1; }
+#ajustes select, #ajustes input[type="range"] { width: 100%; }
+#ajustes select {
+    font: inherit; color: var(--texto); background: var(--panel-2);
+    border: 1px solid var(--borde); border-radius: 10px; padding: .5rem .7rem;
+}
+#ajustes select:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+#ajustes input[type="range"] { accent-color: var(--acento); }
+#ajustes label b { color: var(--acento); margin-left: .35rem; font-variant-numeric: tabular-nums; }
+#campo-voz-navegador.ajuste-secundario { opacity: .6; }
+.ajustes-pie { display: flex; justify-content: space-between; gap: .6rem; margin-top: 1rem; flex-wrap: wrap; }

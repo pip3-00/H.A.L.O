@@ -21,6 +21,59 @@ RANGOS = {
     "animo": {"min": 3, "max": 5, "unidad": "de 5", "nombre": "ánimo"},
 }
 
+# Nombres y unidades en inglés (cuando la página está en inglés)
+RANGOS_EN = {
+    "temperatura": {"unidad": "°C", "nombre": "temperature"},
+    "frecuencia": {"unidad": "bpm", "nombre": "heart rate"},
+    "sistolica": {"unidad": "mmHg", "nombre": "systolic pressure"},
+    "diastolica": {"unidad": "mmHg", "nombre": "diastolic pressure"},
+    "glucosa": {"unidad": "mg/dL", "nombre": "glucose"},
+    "sueno": {"unidad": "hours", "nombre": "sleep"},
+    "animo": {"unidad": "out of 5", "nombre": "mood"},
+}
+
+# Frases de las respuestas de respaldo (sin Gemini), en los dos idiomas
+FRASES = {
+    "es": {
+        "radiacion": "Llevas {msv:.1f} milisievert de radiación, el {pct:.1f} por ciento del límite de carrera de la NASA, que es de 600.",
+        "osea_rango": "Tu pérdida ósea estimada es de {a:.1f} a {b:.1f} por ciento.",
+        "osea_parcial": "En gravedad parcial no se sabe cuánto hueso se pierde; en microgravedad es de 1 a 1.5 por ciento al mes.",
+        "gravedad": "La gravedad en tu hábitat es de {g} g.",
+        "dia": "Estás en el día {d} de la misión.",
+        "retraso": "Desde Marte un mensaje tarda de 3 a 22 minutos de ida; en esta simulación usamos 12 minutos, 24 ida y vuelta. Desde la Luna o la estación, segundos.",
+        "presion": "Tu presión es {s} sobre {d} milímetros de mercurio.",
+        "sin_medicion": "No tengo una medición de tu {nombre}; mídela y te digo.",
+        "valor": "Tu {nombre} es de {v} {unidad}, {estado}.",
+        "baja": "baja", "alta": "alta", "normal": "dentro del rango normal",
+        "tendencia": " En tus últimas {n} lecturas el promedio es {prom} y {tend}.",
+        "sube": "va en aumento", "baja_t": "va bajando", "estable": "se mantiene estable",
+        "esta_baja": "tu {nombre} está baja", "esta_alta": "tu {nombre} está alta", "durmio_poco": "dormiste poco",
+        "sin_datos": "No tengo mediciones tuyas todavía.",
+        "todo_normal": "Tus parámetros están dentro de los rangos normales.",
+        "segun": "Según tus mediciones, {lista}.",
+        "volver_medir": "Vuelve a medir en 30 minutos y, si sigue igual, avisa a Tierra.",
+    },
+    "en": {
+        "radiacion": "You have received {msv:.1f} millisieverts of radiation, {pct:.1f} percent of NASA's career limit of 600.",
+        "osea_rango": "Your estimated bone loss is {a:.1f} to {b:.1f} percent.",
+        "osea_parcial": "In partial gravity it's not known how much bone is lost; in microgravity it's 1 to 1.5 percent per month.",
+        "gravedad": "Gravity in your habitat is {g} g.",
+        "dia": "You are on day {d} of the mission.",
+        "retraso": "From Mars a message takes 3 to 22 minutes one way; in this simulation we use 12 minutes, 24 round trip. From the Moon or the station, seconds.",
+        "presion": "Your blood pressure is {s} over {d} millimeters of mercury.",
+        "sin_medicion": "I don't have a measurement of your {nombre}; measure it and I'll tell you.",
+        "valor": "Your {nombre} is {v} {unidad}, {estado}.",
+        "baja": "low", "alta": "high", "normal": "within the normal range",
+        "tendencia": " Over your last {n} readings the average is {prom} and {tend}.",
+        "sube": "it is rising", "baja_t": "it is falling", "estable": "it is stable",
+        "esta_baja": "your {nombre} is low", "esta_alta": "your {nombre} is high", "durmio_poco": "you slept too little",
+        "sin_datos": "I don't have any measurements from you yet.",
+        "todo_normal": "Your vitals are within normal ranges.",
+        "segun": "According to your measurements, {lista}.",
+        "volver_medir": "Measure again in 30 minutes and, if it stays the same, notify Earth.",
+    },
+}
+
 # ---------------------------------------------------------------------------
 # "Entrenamiento" de Nova: conocimiento, reglas y ejemplos que se envían a Gemini
 # en cada consulta. Para enseñarle algo nuevo, edita estas tres secciones.
@@ -109,76 +162,105 @@ SINTOMAS = [
      "No puedo indicarte medicamentos; consulta el botiquín con los médicos de vuelo."),
 ]
 
+# Los mismos consejos en inglés, en el mismo orden (el primero es la emergencia)
+SINTOMAS_EN = [
+    (("chest", "short of breath", "can't breathe", "cant breathe", "faint", "seizure", "confus", "bleed"),
+     "Tell a crewmate and Earth right now. Sit down, stay still and don't make any effort."),
+    (("headache", "head hurts", "migraine"),
+     "Headaches are common in microgravity because fluids shift to the head. Hydrate and rest a few minutes; if it continues or gets worse, notify Earth."),
+    (("dizz", "vertigo", "lightheaded"),
+     "Sit or lie down, drink water and measure your blood pressure again in 10 minutes. If you faint or it doesn't improve, notify Earth."),
+    (("nause", "vomit", "stomach", "sick to"),
+     "Rest with your head still and sip water. If it doesn't improve in an hour or you vomit several times, notify Earth."),
+    (("tired", "fatigue", "exhausted"),
+     "Take a break, hydrate and check how many hours you slept. If the tiredness lasts several days, tell Earth."),
+    (("sleep", "insomnia"),
+     "Keep a fixed schedule, bright light when you wake up and no screens before bed."),
+    (("sad", "anxious", "anxiety", "stress", "lonely", "alone", "mood"),
+     "It's normal to feel this way on a long mission. Talk to a crewmate or your family on the next call, and take a break."),
+    (("ibuprofen", "paracetamol", "acetaminophen", "pill", "medication", "medicine", "aspirin"),
+     "I can't recommend medications; check the medical kit with the flight surgeons."),
+]
+
 
 def numero_texto(v):
     return str(int(v)) if float(v).is_integer() else f"{v:.1f}"
 
 
+# Palabras clave en español y en inglés: se entienden en cualquier idioma de la página
 CLAVES_DATO = {
-    "temperatura": ("temperatura", "fiebre"),
-    "frecuencia": ("frecuencia", "pulso", "corazón", "corazon", "latido"),
-    "sistolica": ("presión", "presion", "tensión", "tension"),
-    "glucosa": ("glucosa", "azúcar", "azucar"),
-    "sueno": ("dormí", "dormi", "horas de sueño", "cuánto dormí"),
-    "animo": ("ánimo", "animo", "humor"),
+    "temperatura": ("temperatura", "fiebre", "temperature", "fever"),
+    "frecuencia": ("frecuencia", "pulso", "corazón", "corazon", "latido", "heart rate", "pulse", "heartbeat"),
+    "sistolica": ("presión", "presion", "tensión", "tension", "blood pressure", "pressure"),
+    "glucosa": ("glucosa", "azúcar", "azucar", "glucose", "sugar"),
+    "sueno": ("dormí", "dormi", "horas de sueño", "cuánto dormí", "how much did i sleep", "how long did i sleep", "hours of sleep"),
+    "animo": ("ánimo", "animo", "humor", "mood"),
 }
 
 
-def respuesta_datos(p, m, e):
+def respuesta_datos(p, m, e, idioma="es"):
     """Respuestas con datos concretos sin Gemini (valores, tendencias, entorno)."""
+    f = FRASES[idioma]
     hist = [h.get("mediciones", {}) for h in (e.get("historial") or []) if isinstance(h, dict)]
     partes = []
 
-    if any(k in p for k in ("radiación", "radiacion", "milisievert", "msv")) and isinstance(e.get("radiacionMSv"), (int, float)):
-        partes.append(f"Llevas {e['radiacionMSv']:.1f} milisievert de radiación, el {e.get('porcentajeLimite', 0):.1f} por ciento del límite de carrera de la NASA, que es de 600.")
-    if any(k in p for k in ("hueso", "ósea", "osea")):
+    if any(k in p for k in ("radiación", "radiacion", "milisievert", "msv", "radiation", "millisievert")) and isinstance(e.get("radiacionMSv"), (int, float)):
+        partes.append(f["radiacion"].format(msv=e["radiacionMSv"], pct=e.get("porcentajeLimite", 0)))
+    if any(k in p for k in ("hueso", "ósea", "osea", "bone")):
         po = e.get("perdidaOsea")
         if isinstance(po, list) and len(po) == 2:
-            partes.append(f"Tu pérdida ósea estimada es de {po[0]:.1f} a {po[1]:.1f} por ciento.")
+            partes.append(f["osea_rango"].format(a=po[0], b=po[1]))
         else:
-            partes.append("En gravedad parcial no se sabe cuánto hueso se pierde; en microgravedad es de 1 a 1.5 por ciento al mes.")
-    if "gravedad" in p and isinstance(e.get("gravedad"), (int, float)):
-        partes.append(f"La gravedad en tu hábitat es de {e['gravedad']} g.")
-    if any(k in p for k in ("qué día", "que dia", "día de misión", "dia de mision")) and e.get("diaMision"):
-        partes.append(f"Estás en el día {numero_texto(float(e['diaMision']))} de la misión.")
-    if any(k in p for k in ("tierra tarda", "responde tierra", "retraso", "demora", "cuánto tarda", "cuanto tarda")):
-        partes.append("Desde Marte un mensaje tarda de 3 a 22 minutos de ida; en esta simulación usamos 12 minutos, 24 ida y vuelta. Desde la Luna o la estación, segundos.")
+            partes.append(f["osea_parcial"])
+    if any(k in p for k in ("gravedad", "gravity")) and isinstance(e.get("gravedad"), (int, float)):
+        partes.append(f["gravedad"].format(g=e["gravedad"]))
+    if any(k in p for k in ("qué día", "que dia", "día de misión", "dia de mision", "what day", "mission day")) and e.get("diaMision"):
+        partes.append(f["dia"].format(d=numero_texto(float(e["diaMision"]))))
+    if any(k in p for k in ("tierra tarda", "responde tierra", "retraso", "demora", "cuánto tarda", "cuanto tarda",
+                            "delay", "how long does earth", "earth take", "earth to respond", "earth to answer")):
+        partes.append(f["retraso"])
 
     for clave, palabras in CLAVES_DATO.items():
         if not any(w in p for w in palabras):
             continue
         r = RANGOS[clave]
+        nombres = RANGOS_EN[clave] if idioma == "en" else r
         if clave == "sistolica":
             s_, d_ = m.get("sistolica"), m.get("diastolica")
             if isinstance(s_, (int, float)) and isinstance(d_, (int, float)):
-                partes.append(f"Tu presión es {numero_texto(s_)} sobre {numero_texto(d_)} milímetros de mercurio.")
+                partes.append(f["presion"].format(s=numero_texto(s_), d=numero_texto(d_)))
             continue
         v = m.get(clave)
         if not isinstance(v, (int, float)) or isinstance(v, bool):
-            partes.append(f"No tengo una medición de tu {r['nombre']}; mídela y te digo.")
+            partes.append(f["sin_medicion"].format(nombre=nombres["nombre"]))
             continue
-        estado = "baja" if v < r["min"] else "alta" if v > r["max"] else "dentro del rango normal"
-        frase = f"Tu {r['nombre']} es de {numero_texto(v)} {r['unidad']}, {estado}."
+        estado = f["baja"] if v < r["min"] else f["alta"] if v > r["max"] else f["normal"]
+        frase = f["valor"].format(nombre=nombres["nombre"], v=numero_texto(v), unidad=nombres["unidad"], estado=estado)
         serie = [h.get(clave) for h in hist if isinstance(h.get(clave), (int, float))]
         if len(serie) >= 3:
             prom = sum(serie) / len(serie)
             cambio = serie[-1] - serie[0]
             umbral = 0.3 if clave == "temperatura" else 3
-            tend = "va en aumento" if cambio > umbral else "va bajando" if cambio < -umbral else "se mantiene estable"
-            frase += f" En tus últimas {len(serie)} lecturas el promedio es {numero_texto(round(prom, 1))} y {tend}."
+            tend = f["sube"] if cambio > umbral else f["baja_t"] if cambio < -umbral else f["estable"]
+            frase += f["tendencia"].format(n=len(serie), prom=numero_texto(round(prom, 1)), tend=tend)
         partes.append(frase)
     return " ".join(partes)
 
 
-def respuesta_local(m, pregunta="", e=None):
+def respuesta_local(m, pregunta="", e=None, idioma="es"):
     """Respaldo con reglas: si Gemini falla o tarda, Nova sigue respondiendo."""
     e = e or {}
+    f = FRASES[idioma]
     p = (pregunta or "").lower()
-    consejo = next((texto for claves, texto in SINTOMAS if any(c in p for c in claves)), "")
-    if consejo.startswith("Avisa ahora"):
+    # Se buscan síntomas en las dos listas; el consejo sale en el idioma de la página
+    indice = next((i for i, (claves, _) in enumerate(SINTOMAS) if any(c in p for c in claves)), None)
+    if indice is None:
+        indice = next((i for i, (claves, _) in enumerate(SINTOMAS_EN) if any(c in p for c in claves)), None)
+    consejo = "" if indice is None else (SINTOMAS_EN if idioma == "en" else SINTOMAS)[indice][1]
+    if indice == 0:                       # emergencia: solo el aviso, sin nada más
         return consejo
 
-    datos = respuesta_datos(p, m, e)
+    datos = respuesta_datos(p, m, e, idioma)
     if datos and not consejo:
         return datos
 
@@ -188,32 +270,36 @@ def respuesta_local(m, pregunta="", e=None):
         if not isinstance(v, (int, float)) or isinstance(v, bool):
             continue
         leidos += 1
+        nombre = (RANGOS_EN[clave] if idioma == "en" else r)["nombre"]
         if v < r["min"]:
-            fuera.append(f"tu {r['nombre']} está baja" if clave != "sueno" else "dormiste poco")
+            fuera.append(f["esta_baja"].format(nombre=nombre) if clave != "sueno" else f["durmio_poco"])
         elif v > r["max"]:
-            fuera.append(f"tu {r['nombre']} está alta")
+            fuera.append(f["esta_alta"].format(nombre=nombre))
 
     if leidos == 0:
-        estado = "No tengo mediciones tuyas todavía."
+        estado = f["sin_datos"]
     elif not fuera:
-        estado = "Tus parámetros están dentro de los rangos normales."
+        estado = f["todo_normal"]
     else:
-        estado = "Según tus mediciones, " + ", ".join(fuera) + "."
+        estado = f["segun"].format(lista=", ".join(fuera))
     if consejo:
         return f"{estado} {consejo}"
     if fuera:
-        return f"{estado} Vuelve a medir en 30 minutos y, si sigue igual, avisa a Tierra."
+        return f"{estado} {f['volver_medir']}"
     return estado
 
 
-def construir_prompt(pregunta, m, e):
+def construir_prompt(pregunta, m, e, idioma="es"):
     entorno = {k: v for k, v in e.items() if k not in ("historial", "conversacion")}
+    # Las reglas están en español, pero si la página está en inglés Nova responde en inglés
+    aviso_idioma = ("IMPORTANT: The astronaut uses the app in ENGLISH. Always answer in natural, spoken English "
+                    "(write numbers as they are said), following all the rules below.\n\n") if idioma == "en" else ""
     conversacion = "\n".join(
         f"Astronauta: {t.get('astronauta', '')}\nNova: {t.get('nova', '')}"
         for t in (e.get("conversacion") or [])[-6:] if isinstance(t, dict)
     ) or "(es el inicio de la conversación)"
     j = lambda x: json.dumps(x, ensure_ascii=False)
-    return f"""Te llamas Nova y eres la asistente de salud a bordo de astronautas en misiones de larga duración.
+    return f"""{aviso_idioma}Te llamas Nova y eres la asistente de salud a bordo de astronautas en misiones de larga duración.
 
 REGLAS:
 {REGLAS}
@@ -242,6 +328,7 @@ def responder(cuerpo):
         return 400, {"error": "Solicitud inválida."}
 
     pregunta = str(cuerpo.get("pregunta") or "").strip()[:1000]
+    idioma = "en" if cuerpo.get("idioma") == "en" else "es"   # idioma de la página (Ajustes)
     ctx = cuerpo.get("contexto") if isinstance(cuerpo.get("contexto"), dict) else {}
     m = ctx.get("mediciones") or cuerpo.get("mediciones") or {}
     if not isinstance(m, dict):
@@ -261,11 +348,11 @@ def responder(cuerpo):
 
     clave = os.environ.get("GEMINI_API_KEY")
     if not clave:
-        return 200, {"respuesta": respuesta_local(m, pregunta, e), "fuente": "local (sin API key)"}
+        return 200, {"respuesta": respuesta_local(m, pregunta, e, idioma), "fuente": "local (sin API key)"}
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent?key={clave}"
     carga = json.dumps({
-        "contents": [{"parts": [{"text": construir_prompt(pregunta, m, e)}]}],
+        "contents": [{"parts": [{"text": construir_prompt(pregunta, m, e, idioma)}]}],
         "generationConfig": {"maxOutputTokens": 380, "temperature": 0.3},
     }).encode("utf-8")
     peticion = urllib.request.Request(url, data=carga, headers={"Content-Type": "application/json"}, method="POST")
@@ -278,17 +365,17 @@ def responder(cuerpo):
             detalle = json.loads(err.read().decode("utf-8")).get("error", {}).get("message", "error")
         except Exception:
             detalle = "error"
-        return 200, {"respuesta": respuesta_local(m, pregunta, e), "fuente": f"local (Gemini {err.code}: {detalle})"}
+        return 200, {"respuesta": respuesta_local(m, pregunta, e, idioma), "fuente": f"local (Gemini {err.code}: {detalle})"}
     except Exception as err:  # timeout, red, JSON inválido
         motivo = "timeout" if "timed out" in str(err).lower() else "error de red"
-        return 200, {"respuesta": respuesta_local(m, pregunta, e), "fuente": f"local ({motivo})"}
+        return 200, {"respuesta": respuesta_local(m, pregunta, e, idioma), "fuente": f"local ({motivo})"}
 
     try:
         texto = datos["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError, TypeError):
         texto = ""
     if not texto:
-        return 200, {"respuesta": respuesta_local(m, pregunta, e), "fuente": "local (respuesta vacía)"}
+        return 200, {"respuesta": respuesta_local(m, pregunta, e, idioma), "fuente": "local (respuesta vacía)"}
     return 200, {"respuesta": texto, "fuente": "gemini"}
 
 
