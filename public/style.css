@@ -474,3 +474,29 @@ button.ajustes-cerrar { padding: .25rem .6rem; line-height: 1; }
 .nav-mision { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .nav-insignia { font-size: .7rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; color: #04140d; background: var(--acento); }
 .nav-insignia:empty { display: none; }
+
+/* Minijuegos */
+.mini-pestanas { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 .9rem; }
+.mini-tab { padding: .4rem .9rem; border-radius: 999px; border: 1px solid var(--borde); background: var(--panel); color: var(--tenue); font-weight: 600; font-size: .85rem; cursor: pointer; }
+.mini-tab.activo { color: #04140d; background: var(--acento); border-color: var(--acento); }
+.mini-ayuda { font-size: .85rem; color: var(--tenue); margin: 0 0 .8rem; }
+.mini-resultado { margin: .8rem 0 0; font-size: .9rem; }
+.mini-resultado small { color: var(--tenue); }
+.reflejo-blanco { display: grid; place-items: center; width: 100%; max-width: 360px; height: 150px; margin: 0 auto; border-radius: 18px; border: 2px solid var(--borde); background: var(--panel); color: var(--texto); font-size: 1.15rem; font-weight: 700; cursor: pointer; user-select: none; transition: background .08s; }
+.reflejo-blanco.espera { background: rgba(248, 113, 113, .18); border-color: var(--rojo); color: var(--rojo); }
+.reflejo-blanco.ya { background: var(--acento); border-color: var(--acento); color: #04140d; }
+.reflejo-blanco.pronto { background: rgba(251, 191, 36, .15); border-color: var(--amarillo); color: var(--amarillo); }
+.trivia-pregunta { font-weight: 600; font-size: 1.02rem; margin: 0 0 .7rem; }
+.trivia-opciones { display: grid; gap: .45rem; }
+.trivia-opciones .btn { text-align: left; white-space: normal; }
+.trivia-opciones .op-bien { border-color: var(--verde) !important; color: var(--verde) !important; opacity: 1 !important; }
+.trivia-opciones .op-mal { border-color: var(--rojo) !important; color: var(--rojo) !important; opacity: 1 !important; }
+.respira-circulo { width: 150px; height: 150px; margin: .4rem auto 1rem; border-radius: 50%; display: grid; place-items: center; text-align: center; padding: .5rem;
+    background: radial-gradient(circle, rgba(52, 227, 155, .35), rgba(52, 227, 155, .05)); border: 2px solid var(--acento); font-weight: 600; font-size: .9rem;
+    transform: scale(.7); transition: transform 4s linear; }
+.respira-circulo.fase-0 { transform: scale(1); }
+.respira-circulo.fase-1 { transform: scale(1); }
+.respira-circulo.fase-2 { transform: scale(.7); }
+.respira-circulo.fase-3 { transform: scale(.7); }
+[data-cuerpo="respira"] > .btn { display: block; margin: 0 auto; }
+@media (prefers-reduced-motion: reduce) { .respira-circulo { transition: none; } }

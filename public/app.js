@@ -2534,6 +2534,8 @@ const LOGROS = [
     { id: "racha7",    texto: "7 días seguidos con el wearable",      cumple: j => j.racha >= 7 },
     { id: "dia",       texto: "Día completo (todas las tareas)", cumple: j => j.diasCompletos >= 1 },
     { id: "alerta",    texto: "Respondiste a una alerta",        cumple: j => j.alertasAtendidas >= 1 },
+    { id: "reflejos",  texto: "Reflejos de astronauta (menos de 300 ms)", cumple: j => !!(j.records && j.records.reaccion && j.records.reaccion < 300) },
+    { id: "trivia",    texto: "Experto en salud espacial (trivia 5 de 5)", cumple: j => !!(j.records && j.records.trivia >= 5) },
 ];
 traducirDatos(TAREAS, "TAREAS");
 traducirDatos(LOGROS, "LOGROS");
@@ -2814,4 +2816,241 @@ function actualizarDiaNova() {
 
     window.irAVista = function (v) { mostrarVista(v, true); };
     mostrarVista(vistaDeLaDireccion(), false);
+})();
+
+// ===== Minijuegos de Misión salud =====
+// Tres actividades cortas que suman puntos extra una vez por día de misión:
+//  1. Reflejos: prueba de tiempo de reacción, parecida a la que usan los astronautas en la Estación
+//     para detectar fatiga antes de tareas críticas.
+//  2. Trivia: preguntas sobre salud en el espacio (enseña a interpretar los indicadores).
+//  3. Respiración en caja: 1 minuto guiado para bajar el estrés del aislamiento.
+(function () {
+    const caja = document.getElementById("panel-minijuegos");
+    if (!caja) return;
+    const L = (es, en) => (IDIOMA === "en" ? en : es);
+
+    juego.bonus = juego.bonus || {};
+    juego.records = juego.records || {};
+
+    // Puntos extra: una vez por actividad y por día de misión
+    function sumarBonus(id, puntos) {
+        const dia = diaActual();
+        if (juego.bonus[id] === dia) return 0;
+        juego.bonus[id] = dia;
+        juego.puntos += puntos;
+        revisarLogros();
+        guardarJuego();
+        pintarJuego();
+        return puntos;
+    }
+    function textoPuntos(ganados) {
+        return ganados ? L(`+${ganados} puntos extra`, `+${ganados} bonus points`)
+                       : L("Hoy ya sumaste los puntos de esta actividad.", "You already earned today's points for this activity.");
+    }
+    function hechoHoy(id) { return juego.bonus[id] === diaActual(); }
+
+    caja.innerHTML = `
+    <div class="tarjeta-entorno juego mt-3">
+        <div class="juego-cabecera"><h3>${L("Minijuegos de entrenamiento", "Training mini-games")}</h3>
+            <span class="juego-subtitulo m-0">${L("Puntos extra 1 vez por día", "Bonus points once a day")}</span></div>
+        <div class="mini-pestanas" role="tablist">
+            <button type="button" class="mini-tab activo" data-mini="reflejos" role="tab">⚡ ${L("Reflejos", "Reflexes")}</button>
+            <button type="button" class="mini-tab" data-mini="trivia" role="tab">🧠 ${L("Trivia", "Trivia")}</button>
+            <button type="button" class="mini-tab" data-mini="respira" role="tab">🌬️ ${L("Respiración", "Breathing")}</button>
+        </div>
+        <div class="mini-cuerpo" data-cuerpo="reflejos"></div>
+        <div class="mini-cuerpo" data-cuerpo="trivia" hidden></div>
+        <div class="mini-cuerpo" data-cuerpo="respira" hidden></div>
+    </div>`;
+
+    caja.querySelectorAll(".mini-tab").forEach(function (b) {
+        b.addEventListener("click", function () {
+            caja.querySelectorAll(".mini-tab").forEach(x => x.classList.toggle("activo", x === b));
+            caja.querySelectorAll(".mini-cuerpo").forEach(c => { c.hidden = c.dataset.cuerpo !== b.dataset.mini; });
+        });
+    });
+
+    // ---------- 1. Reflejos ----------
+    const cReflejos = caja.querySelector('[data-cuerpo="reflejos"]');
+    const INTENTOS = 5;
+    let tiempos = [], estadoR = "inicio", t0 = 0, espera = null;
+    cReflejos.innerHTML = `
+        <p class="mini-ayuda">${L("Pulsa el círculo (o la barra espaciadora) en cuanto se ponga verde. Son 5 intentos. Si reaccionas más lento de lo normal, puede ser fatiga: descansa antes de una tarea crítica.",
+            "Tap the circle (or press the space bar) as soon as it turns green. 5 tries. If you react slower than usual it may be fatigue: rest before a critical task.")}</p>
+        <button type="button" class="reflejo-blanco" aria-live="polite">${L("Empezar", "Start")}</button>
+        <p class="mini-resultado" aria-live="polite"></p>`;
+    const blanco = cReflejos.querySelector(".reflejo-blanco");
+    const resR = cReflejos.querySelector(".mini-resultado");
+    if (juego.records.reaccion) resR.textContent = L(`Tu mejor promedio: ${juego.records.reaccion} ms`, `Your best average: ${juego.records.reaccion} ms`);
+
+    function ponerBlanco(clase, texto) { blanco.className = "reflejo-blanco " + clase; blanco.textContent = texto; }
+    function siguiente() {
+        estadoR = "esperando";
+        ponerBlanco("espera", L("Espera…", "Wait…"));
+        espera = setTimeout(function () { estadoR = "ya"; t0 = performance.now(); ponerBlanco("ya", L("¡Ahora!", "Now!")); }, 1200 + Math.random() * 2800);
+    }
+    function pulsar() {
+        if (estadoR === "inicio" || estadoR === "fin") { tiempos = []; resR.textContent = ""; siguiente(); return; }
+        if (estadoR === "esperando") {
+            clearTimeout(espera);
+            estadoR = "pronto";
+            ponerBlanco("pronto", L("¡Muy pronto! Toca para repetir", "Too soon! Tap to retry"));
+            return;
+        }
+        if (estadoR === "pronto") { siguiente(); return; }
+        if (estadoR === "ya") {
+            const ms = Math.round(performance.now() - t0);
+            tiempos.push(ms);
+            if (tiempos.length < INTENTOS) {
+                resR.textContent = L(`Intento ${tiempos.length} de ${INTENTOS}: ${ms} ms`, `Try ${tiempos.length} of ${INTENTOS}: ${ms} ms`);
+                siguiente();
+                return;
+            }
+            estadoR = "fin";
+            const media = Math.round(tiempos.reduce((a, b) => a + b, 0) / tiempos.length);
+            const mejor = Math.min.apply(null, tiempos);
+            if (!juego.records.reaccion || media < juego.records.reaccion) juego.records.reaccion = media;
+            const lectura = media < 300 ? L("Muy alerta 🟢", "Very alert 🟢")
+                : media < 400 ? L("Normal 🟢", "Normal 🟢")
+                : media < 500 ? L("Algo lento 🟡: podría ser cansancio", "A bit slow 🟡: could be tiredness")
+                : L("Lento 🔴: descansa antes de tareas críticas y avisa si se repite", "Slow 🔴: rest before critical tasks and report it if it repeats");
+            const ganados = sumarBonus("reflejos", 15);
+            ponerBlanco("fin", L("Otra vez", "Again"));
+            resR.innerHTML = `<b>${L("Promedio", "Average")}: ${media} ms</b> · ${L("mejor", "best")} ${mejor} ms — ${lectura}<br><small>${textoPuntos(ganados)} · ${L("Récord", "Record")}: ${juego.records.reaccion} ms</small>`;
+            guardarJuego();
+        }
+    }
+    blanco.addEventListener("click", pulsar);
+    document.addEventListener("keydown", function (e) {
+        if (e.code !== "Space" || cReflejos.hidden || cReflejos.closest(".vista").hidden) return;
+        if (/input|textarea|select|button/i.test(document.activeElement && document.activeElement.tagName) && document.activeElement !== blanco) return;
+        e.preventDefault();
+        pulsar();
+    });
+
+    // ---------- 2. Trivia ----------
+    const PREGUNTAS = [
+        { p: ["¿Por qué los astronautas pierden masa ósea en el espacio?", "Why do astronauts lose bone mass in space?"],
+          o: [["Sin el peso de la gravedad, el cuerpo reabsorbe hueso", "Without gravity's load, the body reabsorbs bone"], ["Por la comida deshidratada", "Because of dehydrated food"], ["Por respirar aire reciclado", "Because of recycled air"]], c: 0,
+          e: ["Sin carga, el hueso se pierde: alrededor de un 1 % al mes en cadera y columna si no se hace ejercicio.", "Without load, bone is lost: about 1% per month in hips and spine without exercise."] },
+        { p: ["¿Qué ejercicio protege más huesos y músculos a bordo?", "Which exercise best protects bones and muscles on board?"],
+          o: [["Estiramientos", "Stretching"], ["Ejercicio de resistencia (pesas)", "Resistance exercise (weights)"], ["Ninguno, basta con dormir", "None, sleep is enough"]], c: 1,
+          e: ["La resistencia carga el hueso y el músculo; por eso en la Estación entrenan unas 2 horas al día.", "Resistance loads bone and muscle; that's why ISS crews train about 2 hours a day."] },
+        { p: ["¿Cuál es el límite de radiación de toda la carrera de un astronauta de la NASA?", "What is NASA's career radiation limit for an astronaut?"],
+          o: [["60 mSv", "60 mSv"], ["600 mSv", "600 mSv"], ["6 000 mSv", "6,000 mSv"]], c: 1,
+          e: ["La NASA fija 600 mSv para toda la carrera; el panel de radiación te muestra cuánto llevas.", "NASA sets 600 mSv for a whole career; the radiation panel shows how much you have."] },
+        { p: ["¿Por qué se hincha la cara en microgravedad?", "Why does the face get puffy in microgravity?"],
+          o: [["Por alergia a la nave", "Allergy to the ship"], ["Los líquidos del cuerpo suben hacia la cabeza", "Body fluids shift toward the head"], ["Por falta de sueño", "Lack of sleep"]], c: 1,
+          e: ["Sin gravedad, los líquidos ya no bajan a las piernas; también causa congestión y dolor de cabeza.", "Without gravity fluids no longer pool in the legs; it also causes congestion and headaches."] },
+        { p: ["¿Qué frecuencia cardíaca en reposo se considera normal en un adulto?", "What resting heart rate is normal for an adult?"],
+          o: [["40 a 50 latidos por minuto", "40 to 50 beats per minute"], ["60 a 100 latidos por minuto", "60 to 100 beats per minute"], ["110 a 140 latidos por minuto", "110 to 140 beats per minute"]], c: 1,
+          e: ["Entre 60 y 100 lpm es lo normal en reposo; si pasa de 100 sin esfuerzo, el semáforo se pone en amarillo.", "60–100 bpm is normal at rest; above 100 without effort turns the light yellow."] },
+        { p: ["¿Cuántas horas de sueño se recomiendan a un adulto?", "How many hours of sleep are recommended for an adult?"],
+          o: [["5 horas", "5 hours"], ["7 horas o más", "7 hours or more"], ["Da igual si tomas café", "It doesn't matter if you drink coffee"]], c: 1,
+          e: ["Dormir menos de 7 horas reduce la atención y aumenta los errores en tareas críticas.", "Under 7 hours reduces attention and increases errors in critical tasks."] },
+        { p: ["¿Qué glucosa en ayunas es normal?", "What fasting glucose is normal?"],
+          o: [["Menos de 50 mg/dl", "Below 50 mg/dl"], ["De 70 a 99 mg/dl", "70 to 99 mg/dl"], ["Más de 200 mg/dl", "Above 200 mg/dl"]], c: 1,
+          e: ["Por debajo de 70 es hipoglucemia: come algo con azúcar y vuelve a medir en 15 minutos.", "Below 70 is hypoglycemia: eat something sugary and measure again in 15 minutes."] },
+        { p: ["Un indicador se pone en ROJO. ¿Qué haces?", "An indicator turns RED. What do you do?"],
+          o: [["Esperar a la próxima lectura", "Wait for the next reading"], ["Avisar a un compañero y a Tierra", "Tell a crewmate and Earth"], ["Quitarte el wearable", "Take off the wearable"]], c: 1,
+          e: ["El rojo se avisa de inmediato; un amarillo se avisa a Tierra solo si se repite 3 veces seguidas.", "Red is reported immediately; yellow is reported to Earth only if it repeats 3 times in a row."] },
+        { p: ["¿Cuánto tarda un mensaje en llegar de Marte a la Tierra?", "How long does a message take from Mars to Earth?"],
+          o: [["Menos de 1 segundo", "Under 1 second"], ["Entre 3 y 22 minutos, según la posición", "3 to 22 minutes, depending on position"], ["Un día entero", "A whole day"]], c: 1,
+          e: ["Por eso en Marte debes saber actuar solo mientras llega la respuesta de los médicos.", "That's why on Mars you must act on your own while the doctors' answer arrives."] },
+        { p: ["Durante una tormenta solar, ¿dónde te proteges?", "During a solar storm, where do you shelter?"],
+          o: [["Junto a una ventana", "Next to a window"], ["En el refugio más blindado de la nave", "In the most shielded part of the ship"], ["Afuera, en una caminata espacial", "Outside, on a spacewalk"]], c: 1,
+          e: ["Las zonas rodeadas de agua, comida y equipo frenan las partículas solares.", "Areas surrounded by water, food and equipment block solar particles."] },
+    ];
+    const cTrivia = caja.querySelector('[data-cuerpo="trivia"]');
+    let ronda = [], nPregunta = 0, aciertos = 0;
+    function empezarTrivia() {
+        ronda = PREGUNTAS.slice().sort(() => Math.random() - 0.5).slice(0, 5);
+        nPregunta = 0; aciertos = 0;
+        mostrarPregunta();
+    }
+    function mostrarPregunta() {
+        const q = ronda[nPregunta];
+        const i = IDIOMA === "en" ? 1 : 0;
+        cTrivia.innerHTML = `<p class="mini-ayuda">${L("Pregunta", "Question")} ${nPregunta + 1} / ${ronda.length} · ${L("aciertos", "correct")}: ${aciertos}</p>
+            <p class="trivia-pregunta">${q.p[i]}</p>
+            <div class="trivia-opciones">${q.o.map((o, k) => `<button type="button" class="btn btn-contorno" data-op="${k}">${o[i]}</button>`).join("")}</div>
+            <p class="mini-resultado" aria-live="polite"></p>`;
+        cTrivia.querySelectorAll("[data-op]").forEach(function (b) {
+            b.addEventListener("click", function () {
+                const bien = Number(b.dataset.op) === q.c;
+                if (bien) aciertos++;
+                cTrivia.querySelectorAll("[data-op]").forEach(x => {
+                    x.disabled = true;
+                    if (Number(x.dataset.op) === q.c) x.classList.add("op-bien");
+                    else if (x === b) x.classList.add("op-mal");
+                });
+                const res = cTrivia.querySelector(".mini-resultado");
+                res.innerHTML = `<b>${bien ? L("¡Correcto!", "Correct!") : L("No exactamente.", "Not quite.")}</b> ${q.e[i]}`;
+                const seguir = document.createElement("button");
+                seguir.type = "button";
+                seguir.className = "btn btn-verde btn-sm mt-2";
+                seguir.textContent = nPregunta < ronda.length - 1 ? L("Siguiente →", "Next →") : L("Ver resultado", "See result");
+                seguir.addEventListener("click", function () { nPregunta++; nPregunta < ronda.length ? mostrarPregunta() : terminarTrivia(); });
+                res.appendChild(document.createElement("br"));
+                res.appendChild(seguir);
+            });
+        });
+    }
+    function terminarTrivia() {
+        if (!juego.records.trivia || aciertos > juego.records.trivia) juego.records.trivia = aciertos;
+        const ganados = aciertos >= 3 ? sumarBonus("trivia", 15) : 0;
+        guardarJuego();
+        const nota = aciertos === 5 ? L("¡Experto en salud espacial! 🏅", "Space health expert! 🏅")
+            : aciertos >= 3 ? L("¡Bien hecho!", "Well done!") : L("Sigue practicando: necesitas 3 aciertos para sumar puntos.", "Keep practicing: you need 3 correct to earn points.");
+        cTrivia.innerHTML = `<p class="trivia-pregunta">${aciertos} / ${ronda.length} — ${nota}</p>
+            <p class="mini-resultado">${aciertos >= 3 ? textoPuntos(ganados) : ""}</p>
+            <button type="button" class="btn btn-verde">${L("Jugar otra ronda", "Play another round")}</button>`;
+        cTrivia.querySelector("button").addEventListener("click", empezarTrivia);
+    }
+    cTrivia.innerHTML = `<p class="mini-ayuda">${L("5 preguntas sobre tu salud en el espacio. Con 3 aciertos o más sumas puntos.", "5 questions about your health in space. 3 or more correct earns points.")}</p>
+        <button type="button" class="btn btn-verde">${L("Empezar trivia", "Start trivia")}</button>`;
+    cTrivia.querySelector("button").addEventListener("click", empezarTrivia);
+
+    // ---------- 3. Respiración en caja (4-4-4-4) ----------
+    const cRespira = caja.querySelector('[data-cuerpo="respira"]');
+    const FASES = [L("Inhala", "Breathe in"), L("Mantén", "Hold"), L("Exhala", "Breathe out"), L("Mantén", "Hold")];
+    const CICLOS = 4;      // 4 ciclos x 16 s ≈ 1 minuto
+    let reloj = null;
+    cRespira.innerHTML = `<p class="mini-ayuda">${L("Respiración en caja: 4 segundos para inhalar, sostener, exhalar y sostener. Un minuto ayuda a bajar el estrés y el pulso, útil en el aislamiento.",
+            "Box breathing: 4 seconds to breathe in, hold, breathe out and hold. One minute helps lower stress and heart rate, useful during isolation.")}</p>
+        <div class="respira-circulo"><span>${L("Listo", "Ready")}</span></div>
+        <button type="button" class="btn btn-verde">${L("Empezar 1 minuto", "Start 1 minute")}</button>
+        <p class="mini-resultado" aria-live="polite"></p>`;
+    const circulo = cRespira.querySelector(".respira-circulo");
+    const etiqueta = circulo.querySelector("span");
+    const botonR = cRespira.querySelector("button");
+    const resResp = cRespira.querySelector(".mini-resultado");
+    botonR.addEventListener("click", function () {
+        if (reloj) {             // detener
+            clearInterval(reloj); reloj = null;
+            circulo.className = "respira-circulo"; etiqueta.textContent = L("Listo", "Ready");
+            botonR.textContent = L("Empezar 1 minuto", "Start 1 minute");
+            return;
+        }
+        let segundo = 0;
+        const total = CICLOS * 16;
+        botonR.textContent = L("Detener", "Stop");
+        resResp.textContent = "";
+        function paso() {
+            if (segundo >= total) {
+                clearInterval(reloj); reloj = null;
+                circulo.className = "respira-circulo";
+                etiqueta.textContent = "✔";
+                botonR.textContent = L("Repetir", "Repeat");
+                resResp.textContent = L("¡Bien! ", "Nice! ") + textoPuntos(sumarBonus("respira", 10));
+                return;
+            }
+            const fase = Math.floor(segundo / 4) % 4;
+            circulo.className = "respira-circulo fase-" + fase;
+            etiqueta.textContent = FASES[fase] + " · " + (4 - (segundo % 4));
+            segundo++;
+        }
+        paso();
+        reloj = setInterval(paso, 1000);
+    });
 })();

@@ -444,6 +444,8 @@ const DATOS_EN = {
         { texto: "7 days in a row with the wearable" },
         { texto: "Full day (all tasks)" },
         { texto: "You responded to an alert" },
+        { texto: "Astronaut reflexes (under 300 ms)" },
+        { texto: "Space health expert (trivia 5 of 5)" },
     ],
 };
 
