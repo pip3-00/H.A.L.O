@@ -968,9 +968,10 @@ if ("speechSynthesis" in window) {
 // escuchando o pensando, esperan y se dicen después.
 const alertasPendientes = [];
 
+// Ocupada = Nova está en una conversación. Si solo está diciendo otra alerta,
+// la nueva se encola detrás (la cola de voz garantiza que no se corte).
 function conversacionOcupada() {
-    const hablando = "speechSynthesis" in window && speechSynthesis.speaking;
-    return hablando || (typeof window.novaOcupada === "function" && window.novaOcupada());
+    return typeof window.novaOcupada === "function" && window.novaOcupada();
 }
 
 function hablarAlerta(texto) {
@@ -999,7 +1000,131 @@ function resumenParaVoz(texto) {
     return (salida || frases[0] || "").trim();
 }
 
+// ===== Voz de Nova =====
+// Voz principal: Gemini TTS a través de api/voz.py (Python). Si no está disponible,
+// se usa la voz del navegador. Todo pasa por una cola para que nada se corte.
+const colaVoz = [];
+let vozActiva = false;
+let generacionVoz = 0;
+let fuenteVozActual = null;
+let fallosVozServidor = 0;
+const cacheVoz = new Map();
+let ctxAudio = null;
+let analizadorVoz = null;
+window.novaNivelVoz = 0;       // 0..1, lo usa el orbe para animarse
+
+function asegurarAudio() {
+    if (ctxAudio) { if (ctxAudio.state === "suspended") ctxAudio.resume(); return ctxAudio; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    ctxAudio = new Ctx();
+    analizadorVoz = ctxAudio.createAnalyser();
+    analizadorVoz.fftSize = 256;
+    analizadorVoz.connect(ctxAudio.destination);
+    return ctxAudio;
+}
+// Los navegadores exigen un gesto del usuario antes de reproducir audio
+["pointerdown", "keydown"].forEach(ev => window.addEventListener(ev, asegurarAudio, { passive: true }));
+
+function novaEstaHablando() {
+    return vozActiva || colaVoz.length > 0 ||
+        ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending));
+}
+
 function hablar(texto, encolar = false) {
+    const limpio = String(texto || "").replace(/[*_#`]/g, "").replace(/\s+/g, " ").trim();
+    if (!limpio) return;
+    if (!encolar) detenerVoz();
+    colaVoz.push({ texto: limpio, gen: generacionVoz });
+    if (!vozActiva) siguienteVoz();
+}
+
+function detenerVoz() {
+    generacionVoz++;
+    colaVoz.length = 0;
+    if (fuenteVozActual) { try { fuenteVozActual.stop(); } catch (_) {} }
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+}
+
+async function siguienteVoz() {
+    const item = colaVoz.shift();
+    if (!item) { vozActiva = false; window.novaNivelVoz = 0; return; }
+    vozActiva = true;
+    try {
+        await reproducirVozServidor(item);
+    } catch (_) {
+        if (item.gen === generacionVoz) await hablarNavegadorYEsperar(item.texto);
+    }
+    siguienteVoz();
+}
+
+function servidorVozDisponible() {
+    return typeof fetch === "function" && location.protocol.startsWith("http") && fallosVozServidor < 2 && asegurarAudio();
+}
+
+async function reproducirVozServidor(item) {
+    if (!servidorVozDisponible()) throw new Error("sin servidor de voz");
+    let buffer = cacheVoz.get(item.texto);
+    if (!buffer) {
+        const r = await fetch("/api/voz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: (typeof AbortSignal !== "undefined" && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined,
+            body: JSON.stringify({ texto: item.texto }),
+        });
+        let datos = null;
+        try { datos = JSON.parse(await r.text()); } catch (_) {}
+        if (!datos || !datos.audio) {
+            fallosVozServidor++;
+            if (fallosVozServidor >= 2) setTimeout(() => { fallosVozServidor = 0; }, 120000);
+            throw new Error("voz no disponible: " + (datos && datos.fuente));
+        }
+        const bin = atob(datos.audio);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        buffer = await ctxAudio.decodeAudioData(bytes.buffer);
+        cacheVoz.set(item.texto, buffer);
+        if (cacheVoz.size > 40) cacheVoz.delete(cacheVoz.keys().next().value);
+        fallosVozServidor = 0;
+    }
+    if (item.gen !== generacionVoz) return;          // se canceló mientras llegaba
+
+    await new Promise(function (resolver) {
+        const fuente = ctxAudio.createBufferSource();
+        fuente.buffer = buffer;
+        fuente.connect(analizadorVoz);
+        fuente.onended = function () { if (fuenteVozActual === fuente) fuenteVozActual = null; resolver(); };
+        fuenteVozActual = fuente;
+        fuente.start();
+        const datos = new Uint8Array(analizadorVoz.frequencyBinCount);
+        (function medir() {
+            if (fuenteVozActual !== fuente) { window.novaNivelVoz = 0; return; }
+            analizadorVoz.getByteFrequencyData(datos);
+            let suma = 0;
+            for (let i = 2; i < 40; i++) suma += datos[i];
+            window.novaNivelVoz = Math.min(1, suma / (38 * 110));
+            requestAnimationFrame(medir);
+        })();
+    });
+}
+
+function hablarNavegadorYEsperar(texto) {
+    return new Promise(function (resolver) {
+        if (!("speechSynthesis" in window)) { resolver(); return; }
+        hablarNavegador(texto, true);
+        const inicio = Date.now();
+        (function revisar() {
+            const sigue = speechSynthesis.speaking || speechSynthesis.pending;
+            window.novaNivelVoz = sigue ? 0.35 + Math.random() * 0.4 : 0;   // sin analizador: nivel simulado
+            if (sigue && Date.now() - inicio < 60000) { setTimeout(revisar, 120); return; }
+            if (!sigue && Date.now() - inicio < 400) { setTimeout(revisar, 120); return; }   // aún no empieza
+            window.novaNivelVoz = 0;
+            resolver();
+        })();
+    });
+}
+
+function hablarNavegador(texto, encolar = false) {
     if (!("speechSynthesis" in window)) return;
     if (!encolar) speechSynthesis.cancel();   // corta lo que suene, salvo que se encole
 
@@ -1414,6 +1539,7 @@ const NOMBRE_ASISTENTE = "Nova";
 
     function ponerEstado(nuevo, mensaje) {
         estado = nuevo;
+        window.novaEstado = nuevo;
         const textos = {
             apagado: "🎙 Activar a Nova",
             esperando: "🔴 Nova te escucha · pulsa para apagar",
@@ -1441,7 +1567,7 @@ const NOMBRE_ASISTENTE = "Nova";
     function alTerminarDeHablar(fn) {
         let intentos = 0;
         setTimeout(function revisar() {
-            const hablando = "speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending);
+            const hablando = novaEstaHablando();
             if (hablando && ++intentos < 200) { setTimeout(revisar, 300); return; }
             setTimeout(fn, 400);
         }, 500);
@@ -1485,7 +1611,7 @@ const NOMBRE_ASISTENTE = "Nova";
 
     function procesar(texto) {
         if (pausado || estado === "pensando") return;
-        if ("speechSynthesis" in window && speechSynthesis.speaking) return;   // ignora su propia voz
+        if (novaEstaHablando()) return;   // ignora su propia voz
         const t = normalizar(texto);
         if (!t) return;
 
@@ -1551,5 +1677,111 @@ const NOMBRE_ASISTENTE = "Nova";
         pausar();
         hablar("Hola, soy " + NOMBRE_ASISTENTE + ". Di: oye " + NOMBRE_ASISTENTE + ", y tu pregunta.");
         alTerminarDeHablar(function () { if (activo) reanudar(); });
+    });
+})();
+
+// ===== Orbe de Nova (animación de partículas en canvas) =====
+(function () {
+    const lienzo = document.getElementById("nova-orbe");
+    if (!lienzo || !lienzo.getContext) return;
+    const ctx = lienzo.getContext("2d");
+    if (!ctx || typeof ctx.createRadialGradient !== "function") return;
+
+    const N = 4200;
+    const puntos = [];
+    const aureo = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < N; i++) {
+        const y = 1 - (i / (N - 1)) * 2;
+        const r = Math.sqrt(1 - y * y);
+        const th = aureo * i;
+        puntos.push([Math.cos(th) * r, y, Math.sin(th) * r]);
+    }
+
+    const quieto = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let nivel = 0, ancho = 0, alto = 0, dpr = 1;
+
+    function ajustar() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        ancho = lienzo.clientWidth || 260;
+        alto = lienzo.clientHeight || 260;
+        lienzo.width = Math.round(ancho * dpr);
+        lienzo.height = Math.round(alto * dpr);
+    }
+    if (window.ResizeObserver) new ResizeObserver(ajustar).observe(lienzo);
+    ajustar();
+
+    const COLORES = {
+        apagado:    [90, 140, 220],
+        esperando:  [70, 150, 255],
+        escuchando: [80, 220, 255],
+        pensando:   [150, 130, 255],
+    };
+
+    function cuadro(t) {
+        t = quieto ? 0 : t / 1000;
+        const estado = window.novaEstado || "apagado";
+        const hablando = (window.novaNivelVoz || 0) > 0.02;
+        const objetivo = hablando ? window.novaNivelVoz : (estado === "escuchando" ? 0.25 : estado === "pensando" ? 0.15 : 0.05);
+        nivel += (objetivo - nivel) * 0.18;
+
+        const base = hablando ? [90, 170, 255] : (COLORES[estado] || COLORES.apagado);
+        const cx = ancho / 2, cy = alto / 2;
+        const radio = Math.min(ancho, alto) * 0.27 * (1 + nivel * 0.12);
+        const giro = t * (estado === "pensando" ? 0.9 : 0.25);
+        const amp = 0.06 + nivel * 0.28;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, ancho, alto);
+
+        const halo = ctx.createRadialGradient(cx, cy, radio * 0.2, cx, cy, radio * 1.6);
+        halo.addColorStop(0, `rgba(${base[0]},${base[1]},${base[2]},${0.10 + nivel * 0.25})`);
+        halo.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = halo;
+        ctx.fillRect(0, 0, ancho, alto);
+
+        ctx.globalCompositeOperation = "lighter";
+        const cg = Math.cos(giro), sg = Math.sin(giro);
+        const inc = 0.35, ci = Math.cos(inc), si = Math.sin(inc);
+        for (let i = 0; i < N; i++) {
+            const p = puntos[i];
+            // superficie ondulada (suma de senos = ruido barato)
+            const d = 1 + amp * (
+                Math.sin(p[0] * 4.1 + t * 1.3) * Math.cos(p[1] * 3.7 - t * 0.9) +
+                0.5 * Math.sin(p[2] * 6.3 + p[0] * 2.1 + t * 1.7));
+            let x = p[0] * d, y = p[1] * d, z = p[2] * d;
+            const x2 = x * cg + z * sg, z2 = -x * sg + z * cg;
+            const y2 = y * ci - z2 * si, z3 = y * si + z2 * ci;
+            const prof = (z3 + 1.4) / 2.8;               // 0 atrás, 1 delante
+            const persp = 1 / (1.9 - z3 * 0.5);
+            const sx = cx + x2 * radio * persp * 1.5, sy = cy + y2 * radio * persp * 1.5;
+            const brillo = (0.08 + prof * 0.42 + nivel * 0.25) * (0.75 + 0.5 * Math.abs(d - 1) / Math.max(amp, 0.01));
+            ctx.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${Math.min(1, brillo)})`;
+            const tam = 0.8 + prof * 1.4;
+            ctx.fillRect(sx, sy, tam, tam);
+        }
+        ctx.globalCompositeOperation = "source-over";
+        requestAnimationFrame(cuadro);
+    }
+    requestAnimationFrame(cuadro);
+})();
+
+// Subtítulo: muestra lo último que dijo Nova (la transcripción completa queda oculta)
+(function () {
+    const chat = document.getElementById("chat-ia");
+    const sub = document.getElementById("nova-subtitulo");
+    const boton = document.getElementById("btn-transcripcion");
+    if (!chat || !sub) return;
+    new MutationObserver(function () {
+        const ultimo = chat.lastElementChild;
+        if (!ultimo) return;
+        const t = ultimo.textContent.replace(/^Nova( \([^)]*\))?:\s*/, "").replace(/^Astronauta:\s*/, "Tú: ");
+        const frases = t.match(/[^.!?]+[.!?]?/g) || [t];
+        let corto = frases.slice(0, 2).join("").trim();
+        if (corto.length > 150) corto = corto.slice(0, 147).trim() + "…";
+        sub.textContent = corto;
+    }).observe(chat, { childList: true, subtree: true, characterData: true });
+    if (boton) boton.addEventListener("click", function () {
+        chat.hidden = !chat.hidden;
+        boton.textContent = chat.hidden ? "Ver transcripción" : "Ocultar transcripción";
     });
 })();

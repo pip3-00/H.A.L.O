@@ -295,3 +295,23 @@ canvas {
     button, input, select { transition: none; }
     html { scroll-behavior: auto; }
 }
+
+/* ---------- Orbe de Nova ---------- */
+.nova-escenario {
+    display: flex; flex-direction: column; align-items: center;
+    border-radius: 16px;
+    background: radial-gradient(260px 220px at 50% 45%, #0b1a33, #03060c 75%);
+    padding: .5rem 1rem 1rem;
+    margin-bottom: .9rem;
+}
+#nova-orbe { width: 320px; height: 300px; max-width: 100%; border: 0; border-radius: 0; margin: 0; background: transparent; }
+#nova-subtitulo {
+    min-height: 2.6em; max-width: 46ch; margin: 0;
+    text-align: center; font-size: .95rem; color: #cfe3ff;
+}
+#controles-voz { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0 0 .5rem; }
+#estado-microfono { font-size: 13px; color: var(--tenue); }
+.nova-secundarios { display: flex; justify-content: center; gap: .5rem; flex-wrap: wrap; }
+.nova-secundarios button { font-size: 12px; font-weight: 500; background: transparent; border-color: transparent; color: var(--tenue); }
+.nova-secundarios button:hover { color: var(--texto); }
+#chat-ia[hidden] { display: none !important; }

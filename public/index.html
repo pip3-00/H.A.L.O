@@ -90,17 +90,20 @@
 <section id="seccion-asistente">
     <h3>Nova · asistente de a bordo</h3>
 
-    <p>
-        Activa a Nova y habla con ella: di <b>«Oye Nova»</b> y tu pregunta.
-        Responde en voz alta usando tus mediciones.
-    </p>
-
-    <div id="controles-voz" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;">
-        <button type="button" id="btn-microfono">🎙 Activar a Nova</button>
-        <span id="estado-microfono" aria-live="polite" style="font-size:13px;color:#9aa3b2;"></span>
+    <div class="nova-escenario">
+        <canvas id="nova-orbe" aria-hidden="true"></canvas>
+        <p id="nova-subtitulo" aria-live="polite">Pulsa «Activar a Nova» y di «Oye Nova».</p>
     </div>
 
-    <button type="button" id="btn-escribir" style="font-size:12px;opacity:.75;margin-bottom:8px;">⌨ Escribir en vez de hablar</button>
+    <div id="controles-voz">
+        <button type="button" id="btn-microfono">🎙 Activar a Nova</button>
+        <span id="estado-microfono" aria-live="polite"></span>
+    </div>
+
+    <div class="nova-secundarios">
+        <button type="button" id="btn-escribir">⌨ Escribir en vez de hablar</button>
+        <button type="button" id="btn-transcripcion">Ver transcripción</button>
+    </div>
 
     <form id="formulario-asistente" hidden>
         <div class="campo">
@@ -118,7 +121,7 @@
         </button>
     </form>
 
-    <div id="chat-ia" aria-live="polite"></div>
+    <div id="chat-ia" hidden></div>
 </section>
 
         </section>
