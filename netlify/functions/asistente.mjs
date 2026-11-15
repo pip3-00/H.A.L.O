@@ -21,17 +21,20 @@ const RANGOS = {
 // Respaldo local: si Gemini falla o tarda, la demo sigue funcionando.
 function respuestaLocal(m) {
     const lineas = [];
+    let leidos = 0;
     for (const [clave, r] of Object.entries(RANGOS)) {
         const v = m[clave];
-        if (v === undefined || v === null) continue;
+        if (v === undefined || v === null || v === "") continue;
+        leidos++;
         if (v < r.min) lineas.push(`${r.nombre}: ${v} ${r.unidad}, por debajo del rango (${r.min}-${r.max}).`);
         else if (v > r.max) lineas.push(`${r.nombre}: ${v} ${r.unidad}, por encima del rango (${r.min}-${r.max}).`);
     }
-    if (lineas.length === 0) {
-        return "Tus indicadores están dentro de los rangos de referencia. Sigue con tu rutina de medición.";
+    if (leidos === 0) {
+        return "No recibí mediciones. Registra tus indicadores antes de consultar.";
     }
-    return "Indicadores fuera de rango:\n- " + lineas.join("\n- ") +
-        "\nVuelve a medir en 30 minutos. Si persiste, activa el protocolo y avisa al equipo médico en Tierra.";
+    if (lineas.length === 0) {
+        return "Tus indicadores medidos están dentro de los rangos de referencia.";
+    }
 }
 
 function construirPrompt(pregunta, m, e) {
