@@ -1,12 +1,6 @@
-// netlify/functions/asistente.mjs
+// api/asistente.js  (Vercel Serverless Function)
 const MODELO = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 8000;
-
-const json = (obj, status = 200) =>
-    new Response(JSON.stringify(obj), {
-        status,
-        headers: { "Content-Type": "application/json" }
-    });
 
 const RANGOS = {
     temperatura: { min: 36.1, max: 37.5, unidad: "°C", nombre: "temperatura" },
@@ -35,6 +29,8 @@ function respuestaLocal(m) {
     if (lineas.length === 0) {
         return "Tus indicadores medidos están dentro de los rangos de referencia.";
     }
+    return "Indicadores fuera de rango:\n- " + lineas.join("\n- ") +
+        "\nVuelve a medir en 30 minutos. Si persiste, activa el protocolo y avisa al equipo médico en Tierra.";
 }
 
 function construirPrompt(pregunta, m, e) {
@@ -45,22 +41,25 @@ No des diagnósticos definitivos. Si faltan datos, dilo.
 
 Mediciones del astronauta: ${JSON.stringify(m)}
 Rangos de referencia: ${JSON.stringify(RANGOS)}
-Entorno (hábitat, día de misión, radiación acumulada, pérdida ósea estimada): ${JSON.stringify(e)}
+Entorno (hábitat, día de misión, radiación acumulada, pérdida ósea estimada): ${JSON.stringify({ ...e, historial: undefined })}
+Historial de lecturas previas (de la más antigua a la más reciente, cada una con su día de misión y estado por indicador): ${JSON.stringify(e.historial || [])}
+
+Basa tu respuesta en el historial: compara la lectura actual con las anteriores, señala tendencias (sube, baja, se mantiene) citando valores y días concretos. Si hay menos de 3 lecturas, dilo y no inventes tendencias.
 
 Pregunta del astronauta: ${pregunta || "Evalúa mi estado de salud actual."}`;
 }
 
-export default async (req) => {
+module.exports = async (req, res) => {
     if (req.method !== "POST") {
-        return json({ error: "Método no permitido" }, 405);
+        return res.status(405).json({ error: "Método no permitido" });
     }
 
-    let body;
-    try {
-        body = await req.json();
-    } catch {
-        return json({ error: "Solicitud inválida." }, 400);
+    let body = req.body;
+    if (typeof body === "string") {
+        try { body = JSON.parse(body); }
+        catch { return res.status(400).json({ error: "Solicitud inválida." }); }
     }
+    body = body || {};
 
     const pregunta = (body.pregunta || "").trim();
     const ctx = body.contexto || {};
@@ -70,12 +69,13 @@ export default async (req) => {
         diaMision: ctx.diaMision,
         estadoGeneral: ctx.estadoGeneral,
         resultados: ctx.resultados,
+        historial: ctx.historial || [],
         ...(ctx.entorno || body.entorno || {})
     };
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        return json({ respuesta: respuestaLocal(m), fuente: "local (sin API key)" });
+        return res.status(200).json({ respuesta: respuestaLocal(m), fuente: "local (sin API key)" });
     }
 
     const ctrl = new AbortController();
@@ -103,7 +103,7 @@ export default async (req) => {
         console.log("Gemini:", resp.status, JSON.stringify(datos).slice(0, 500));
 
         if (!resp.ok) {
-            return json({
+            return res.status(200).json({
                 respuesta: respuestaLocal(m),
                 fuente: `local (Gemini ${resp.status}: ${datos.error?.message || "error"})`
             });
@@ -111,14 +111,14 @@ export default async (req) => {
 
         const texto = datos.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!texto) {
-            return json({ respuesta: respuestaLocal(m), fuente: "local (respuesta vacía)" });
+            return res.status(200).json({ respuesta: respuestaLocal(m), fuente: "local (respuesta vacía)" });
         }
 
-        return json({ respuesta: texto, fuente: "gemini" });
+        return res.status(200).json({ respuesta: texto, fuente: "gemini" });
     } catch (err) {
         clearTimeout(timer);
         console.error("Error del asistente:", err);
         const motivo = err.name === "AbortError" ? "timeout" : "error de red";
-        return json({ respuesta: respuestaLocal(m), fuente: `local (${motivo})` });
+        return res.status(200).json({ respuesta: respuestaLocal(m), fuente: `local (${motivo})` });
     }
 };

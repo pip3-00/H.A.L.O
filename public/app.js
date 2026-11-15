@@ -701,7 +701,7 @@ async function consultarAsistente(pregunta) {
     try {
 
         const respuesta = await fetch(
-            "/.netlify/functions/asistente",
+            "./api/asistente",
             {
                 method: "POST",
                 headers: {
