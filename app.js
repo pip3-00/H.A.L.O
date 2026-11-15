@@ -643,6 +643,103 @@ document.getElementById("btn-graficar").addEventListener("click", function () {
     graficarHistorial();
 });
 
-document.getElementById("btn-asistente").addEventListener("click", function () {
-    // llama a consultarAsistente() con los datos actuales
-});
+
+// ===== 5. ASISTENTE DE INTELIGENCIA ARTIFICIAL =====
+
+async function consultarAsistente(pregunta) {
+
+    const chat = document.getElementById("chat-ia");
+    const boton = document.getElementById("btn-asistente");
+
+    const mediciones = leerMediciones();
+    const resultados = evaluarTodo(mediciones);
+    const entorno = calcularEntorno();
+    const general = peorEstado(resultados);
+
+    const contexto = {
+        proyecto: "run3rs",
+        diaMision: entorno.diaMision,
+        habitat: entorno.nombreHabitat,
+        mediciones: mediciones,
+        resultados: resultados,
+        estadoGeneral: TEXTO_ESTADO[general],
+        entorno: {
+            radiacionMSv: entorno.radiacionMSv,
+            porcentajeLimite: entorno.porcentajeLimite,
+            gravedad: entorno.gravedad,
+            perdidaOsea: entorno.perdidaOsea
+        }
+    };
+
+    const mensajeUsuario = document.createElement("p");
+    mensajeUsuario.textContent = "Astronauta: " + pregunta;
+
+    const mensajeIA = document.createElement("p");
+    mensajeIA.textContent = "run3rs IA: Analizando mediciones...";
+
+    chat.appendChild(mensajeUsuario);
+    chat.appendChild(mensajeIA);
+
+    boton.disabled = true;
+    boton.textContent = "Consultando Claude...";
+
+    try {
+
+        const respuesta = await fetch(
+            "/.netlify/functions/asistente",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    pregunta: pregunta,
+                    contexto: contexto
+                })
+            }
+        );
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+            throw new Error(
+                datos.error || "No se pudo consultar el asistente."
+            );
+        }
+
+        mensajeIA.textContent = "run3rs IA: " + datos.respuesta;
+
+    } catch (error) {
+
+        console.error("Error de consulta:", error);
+
+        mensajeIA.textContent =
+            "run3rs IA: No fue posible conectar con el asistente. " +
+            error.message;
+
+    } finally {
+
+        boton.disabled = false;
+        boton.textContent = "Consultar asistente de a bordo";
+
+    }
+}
+
+
+// Conectar formulario del asistente
+
+document.getElementById("formulario-asistente")
+    .addEventListener("submit", async function(evento) {
+
+        evento.preventDefault();
+
+        const campo = document.getElementById("pregunta-asistente");
+
+        const pregunta = campo.value.trim();
+
+        if (!pregunta) return;
+
+        campo.value = "";
+
+        await consultarAsistente(pregunta);
+    });
