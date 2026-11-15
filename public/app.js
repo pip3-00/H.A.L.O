@@ -825,7 +825,7 @@ function guiaHtml(clave) {
 })();
 
 function mostrarResultados(mediciones, resultados, general) {
-    window.novaAlerta = general;       // el orbe de Hermes cambia de color según la advertencia
+    window.novaAlerta = general;       // el orbe de H.A.L.O. cambia de color según la advertencia
     const contenedor = document.getElementById("resultado");
 
     let html = `<div class="general estado-${general}">
@@ -977,7 +977,7 @@ function actualizarBase(mediciones, resultados) {
     if (avisos.length) {
         const texto = avisos.join(" ");
         const mensaje = document.createElement("p");
-        mensaje.textContent = tr("Hermes (línea base): ") + texto;
+        mensaje.textContent = tr("H.A.L.O. (línea base): ") + texto;
         document.getElementById("chat-ia").appendChild(mensaje);
         hablarAlerta(texto);
     }
@@ -1220,7 +1220,7 @@ function puntajeVoz(v) {
     if (IDIOMA === "es" && /es-(mx|us|419|do)/i.test(v.lang)) p += 10;
     if (IDIOMA === "en" && /en-us/i.test(v.lang)) p += 10;
     if (v.localService === false) p += 5;
-    // HERMES es masculino: se prefieren voces de hombre en el respaldo del navegador
+    // H.A.L.O. es masculino: se prefieren voces de hombre en el respaldo del navegador
     if (/jorge|pablo|diego|ra[uú]l|juan|carlos|enrique|alvaro|álvaro|gonzalo|tom[aá]s|andr[eé]s|guy|david|mark|daniel|james|ryan|male|hombre/.test(n)) p += 30;
     if (/helena|laura|sabina|paulina|monica|mónica|elvira|dalia|lucia|lucía|ximena|zira|aria|jenny|samantha|female|mujer/.test(n)) p -= 15;
     return p;
@@ -1261,11 +1261,11 @@ if ("speechSynthesis" in window) {
     prepararSelectorVoz();
 }
 
-// Las alertas automáticas NUNCA interrumpen una conversación: si Hermes está hablando,
+// Las alertas automáticas NUNCA interrumpen una conversación: si H.A.L.O. está hablando,
 // escuchando o pensando, esperan y se dicen después.
 const alertasPendientes = [];
 
-// Ocupada = Hermes está en una conversación. Si solo está diciendo otra alerta,
+// Ocupada = H.A.L.O. está en una conversación. Si solo está diciendo otra alerta,
 // la nueva se encola detrás (la cola de voz garantiza que no se corte).
 function conversacionOcupada() {
     return typeof window.novaOcupada === "function" && window.novaOcupada();
@@ -1297,7 +1297,7 @@ function resumenParaVoz(texto) {
     return (salida || frases[0] || "").trim();
 }
 
-// ===== Voz de Hermes =====
+// ===== Voz de H.A.L.O. =====
 // Voz principal: Gemini TTS a través de api/voz.py (Python). Si no está disponible,
 // se usa la voz del navegador. Todo pasa por una cola para que nada se corte.
 const colaVoz = [];
@@ -1329,7 +1329,8 @@ function novaEstaHablando() {
 }
 
 function hablar(texto, encolar = false) {
-    const limpio = String(texto || "").replace(/[*_#`]/g, "").replace(/\s+/g, " ").trim();
+    // En pantalla se escribe "H.A.L.O.", pero en voz se dice "Halo" (sin deletrear)
+    const limpio = String(texto || "").replace(/H\.A\.L\.O\.(?=\s+[A-ZÁÉÍÓÚÑ¿¡])/g, "Halo.").replace(/H\.A\.L\.O\.?/g, "Halo").replace(/[*_#`]/g, "").replace(/\s+/g, " ").trim();
     if (!limpio) return;
     if (!encolar) detenerVoz();
     colaVoz.push({ texto: limpio, gen: generacionVoz });
@@ -1506,7 +1507,7 @@ function anunciarAnomalias(resultados) {
     if (textos.length === 0) return;
 
     const mensaje = document.createElement("p");
-    mensaje.textContent = tr("Hermes (alerta automática): ") + textos.join(" ");
+    mensaje.textContent = tr("H.A.L.O. (alerta automática): ") + textos.join(" ");
     document.getElementById("chat-ia").appendChild(mensaje);
 
     // Por voz: lo más grave primero, máximo dos avisos; el resto se remite al panel
@@ -1736,17 +1737,17 @@ function hayLecturas() {
     return ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa", "sueno"].some(k => m[k] !== null);
 }
 
-// Charla básica: Hermes contesta como una asistente aunque no haya lecturas ni internet
+// Charla básica: H.A.L.O. contesta como una asistente aunque no haya lecturas ni internet
 function respuestaCharla(texto) {
     const t = String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
     if (!t) return null;
     // Se entienden frases en español y en inglés; la respuesta sale en el idioma de la página
     // Solo cuenta como charla si la frase ENTERA es charla: "¿qué tal está mi presión?" va a Gemini
-    const t2 = t.replace(/^(?:oye |hola |hey |ok |okey )?(?:hermes |ermes |hermez )?/, "").replace(/(?: hermes| ermes| hermez)$/, "").trim();
+    const t2 = t.replace(/^(?:oye |hola |hey |ok |okey )?(?:halo |jalo |alo )?/, "").replace(/(?: halo| jalo| alo)$/, "").trim();
     if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey|hi|hello|good morning|good afternoon|good evening)$/.test(t) ||
-        /^(hola|buenas|hey|hi|hello)( hermes| ermes| hermez)$/.test(t)) return tr("¡Hola! Aquí estoy. ¿En qué te ayudo?");
+        /^(hola|buenas|hey|hi|hello)( halo| jalo| alo)$/.test(t)) return tr("¡Hola! Aquí estoy. ¿En qué te ayudo?");
     if (/^(y )?(tu )?(hola )?(como estas|como esta|como estas tu|como te encuentras|que tal|que tal estas|como te va|como andas|como te sientes|como amaneciste|como has estado|how are you|how are you doing|how s it going)( tu| hoy)?$/.test(t2)) return tr("Estoy bien, gracias por preguntar, y listo para ayudarte. ¿Quieres que revise cómo estás tú?");
-    if (/^(quien eres|que eres|como te llamas|cual es tu nombre|que significa hermes|que significa tu nombre|que quiere decir hermes|who are you|what are you|what s your name|what is your name)( tu)?$/.test(t2)) return tr("Soy Hermes, siglas de Health Evaluation and Remote Medical Expert System: tu sistema de evaluación de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.");
+    if (/^(quien eres|que eres|como te llamas|cual es tu nombre|que significa halo|que significa tu nombre|que quiere decir halo|que significan tus siglas|who are you|what are you|what s your name|what is your name)( tu)?$/.test(t2)) return tr("Soy H.A.L.O., siglas de Health Assessment and Life-support Operations: tu sistema de evaluación de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.");
     if (/^(que puedes hacer|en que me ayudas|en que me puedes ayudar|que sabes hacer|ayuda|ayudame|what can you do|help me|help)$/.test(t2)) return tr("Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.");
     return null;
 }
@@ -1810,7 +1811,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
     const charlaRapida = respuestaCharla(pregunta);
     if (charlaRapida) {
         const chat = document.getElementById("chat-ia");
-        [[tr("Astronauta: "), pregunta], ["Hermes: ", charlaRapida]].forEach(function (p) {
+        [[tr("Astronauta: "), pregunta], ["H.A.L.O.: ", charlaRapida]].forEach(function (p) {
             const el = document.createElement("p"); el.textContent = p[0] + p[1]; chat.appendChild(el);
         });
         if (porVoz) hablar(charlaRapida);
@@ -1857,13 +1858,13 @@ async function consultarAsistente(pregunta, porVoz = false) {
     mensajeUsuario.textContent = tr("Astronauta: ") + pregunta;
 
     const mensajeIA = document.createElement("p");
-    mensajeIA.textContent = "Hermes: " + tr("Analizando mediciones...");
+    mensajeIA.textContent = "H.A.L.O.: " + tr("Analizando mediciones...");
 
     chat.appendChild(mensajeUsuario);
     chat.appendChild(mensajeIA);
 
     boton.disabled = true;
-    boton.textContent = tr("Consultando a Hermes...");
+    boton.textContent = tr("Consultando a H.A.L.O...");
 
     try {
 
@@ -1903,7 +1904,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
             );
         }
 
-        mensajeIA.textContent = "Hermes: " + datos.respuesta;
+        mensajeIA.textContent = "H.A.L.O.: " + datos.respuesta;
         if (porVoz) hablar(resumenParaVoz(datos.respuesta));   // si preguntaste hablando, responde hablando
         recordarTurno(pregunta, datos.respuesta);
         return datos.respuesta;
@@ -1915,7 +1916,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
         // Respaldo: si el asistente en línea falla, se responde con las reglas locales
         // (así la conversación de voz sigue funcionando aunque el servidor falle).
         const local = respuestaLocalCliente(pregunta);
-        mensajeIA.textContent = tr("Hermes (sin conexión con el asistente en línea): ") + local;
+        mensajeIA.textContent = tr("H.A.L.O. (sin conexión con el asistente en línea): ") + local;
         if (porVoz) hablar(local);
         recordarTurno(pregunta, local);
         return local;
@@ -1923,7 +1924,7 @@ async function consultarAsistente(pregunta, porVoz = false) {
     } finally {
 
         boton.disabled = false;
-        boton.textContent = tr("Consultar a Hermes");
+        boton.textContent = tr("Consultar a H.A.L.O.");
 
     }
 }
@@ -1947,16 +1948,16 @@ document.getElementById("formulario-asistente")
         await consultarAsistente(pregunta);
     });
 
-// ===== Hermes: asistente por voz al estilo Alexa =====
-// - Se activa como Siri o Google: "Oye Hermes", "Ok Hermes", "Hey Hermes" o solo "Hermes".
+// ===== H.A.L.O.: asistente por voz al estilo Alexa =====
+// - Se activa como Siri o Google: "Oye H.A.L.O.", "Ok H.A.L.O.", "Hey H.A.L.O." o solo "H.A.L.O.".
 // - No hay botón: empieza a escuchar sola al abrir la página (o con el primer toque si el navegador lo exige).
 // - Suena un tono al oírte, igual que Alexa, y escucha tu pregunta.
 // - Tras responder sigue escuchando unos segundos para que sigas la conversación sin repetir su nombre.
-// - "Hermes, para" / "Hermes, silencio" la interrumpe aunque esté hablando.
-// - "Hermes, deja de escuchar" apaga el micrófono; tocar la página la vuelve a encender.
+// - "H.A.L.O., para" / "H.A.L.O., silencio" la interrumpe aunque esté hablando.
+// - "H.A.L.O., deja de escuchar" apaga el micrófono; tocar la página la vuelve a encender.
 // - Comandos rápidos que se resuelven al instante (hora, día, wearable, simulación, Tierra...).
 
-const NOMBRE_ASISTENTE = "Hermes";
+const NOMBRE_ASISTENTE = "H.A.L.O.";
 
 (function () {
     const boton = document.getElementById("btn-microfono");
@@ -1982,18 +1983,18 @@ const NOMBRE_ASISTENTE = "Hermes";
 
     const normalizar = t => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
         .replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
-    // "Hermes ..." al inicio de la frase. "nueva" solo cuenta si va después de "oye/hey/ok"
-    // "Hermes" en cualquier parte de la frase (el reconocedor a veces escribe ermes, hermez, Hermès...)
-    const ACTIVACION = /(?:^|\s)(?:hermes|ermes|hermez|ermez|hermess|irmes)\b\s*(.*)$/;
-    const ACTIVACION_NUEVA = /(?:^|\s)(?:oye|hey|hola|ok|okey)\s+(?:her mes|er mes|ernes|hernes|germes|hermel)\b\s*(.*)$/;
+    // "H.A.L.O. ..." al inicio de la frase. "nueva" solo cuenta si va después de "oye/hey/ok"
+    // "H.A.L.O." en cualquier parte de la frase (el reconocedor a veces escribe jalo, alo...)
+    const ACTIVACION = /(?:^|\s)(?:halo|jalo|alo|halos|jalos|hallo)\b\s*(.*)$/;
+    const ACTIVACION_NUEVA = /(?:^|\s)(?:oye|hey|hola|ok|okey)\s+(?:ha lo|ja lo|a lo|harlo|jarlo)\b\s*(.*)$/;
     // Órdenes en español y en inglés (funcionan en cualquier idioma de la página)
     const PARAR = /^(?:para|parar|silencio|callate|calla|detente|cancela|cancelar|basta|stop|ya|quiet|silence|cancel|enough|shut up|be quiet)\b/;
     const APAGAR = /^(?:deja de escuchar(?:me)?|no escuches|apagate|apaga el microfono|desactivate|duermete|a dormir|stop listening|turn off|go to sleep|deactivate|mute the microphone)\b/;
-    // "Adiós" / "hasta luego": Hermes se despide y se queda en silencio hasta que vuelvan a decir «Hermes»
+    // "Adiós" / "hasta luego": H.A.L.O. se despide y se queda en silencio hasta que vuelvan a decir «H.A.L.O.»
     const DESPEDIDA = /\b(adios|hasta luego|hasta pronto|hasta manana|hasta la proxima|nos vemos|chao|chau|bye|bye bye|goodbye|good bye|see you|see you later)\b/;
     let dormida = false;
-    const SEGUIMIENTO_MS = 7000;   // tiempo para seguir hablando sin decir "Hermes"
-    const ESCUCHA_MS = 8000;       // tiempo para hacer la pregunta tras decir "Hermes"
+    const SEGUIMIENTO_MS = 7000;   // tiempo para seguir hablando sin decir "H.A.L.O."
+    const ESCUCHA_MS = 8000;       // tiempo para hacer la pregunta tras decir "H.A.L.O."
 
     let reco = null;
     let activo = false;
@@ -2001,17 +2002,17 @@ const NOMBRE_ASISTENTE = "Hermes";
     let temporizador = null;
     let ultimaRespuesta = "";
     let microListo = false;
-    // Modo conversación: responde a todo lo que oiga, sin tener que decir "Hermes".
-    // Modo nombre: solo responde cuando dices "Hermes" (útil en lugares con mucha gente o ruido).
-    // Por defecto funciona como Siri o Google: espera a oír «Hermes» / «Oye Hermes» antes de responder.
-    let modoLibre = true;      // por defecto responde sin decir «Hermes»
+    // Modo conversación: responde a todo lo que oiga, sin tener que decir "H.A.L.O.".
+    // Modo nombre: solo responde cuando dices "H.A.L.O." (útil en lugares con mucha gente o ruido).
+    // Por defecto funciona como Siri o Google: espera a oír «H.A.L.O.» / «Oye H.A.L.O.» antes de responder.
+    let modoLibre = true;      // por defecto responde sin decir «H.A.L.O.»
     try { modoLibre = localStorage.getItem("run3rs-nova-modo") !== "nombre"; } catch (_) {}
     const botonModo = document.createElement("button");
     botonModo.type = "button";
     botonModo.id = "btn-modo-nova";
     function pintarModo() {
-        botonModo.textContent = tr(modoLibre ? "💬 Modo conversación (sin decir «Hermes»)" : "🏷 Modo nombre (di «Hermes» primero)");
-        botonModo.title = tr(modoLibre ? "Responde a todo lo que oye. Cámbialo si hay mucho ruido o gente hablando." : "Solo responde cuando dices «Hermes».");
+        botonModo.textContent = tr(modoLibre ? "💬 Modo conversación (sin decir «H.A.L.O.»)" : "🏷 Modo nombre (di «H.A.L.O.» primero)");
+        botonModo.title = tr(modoLibre ? "Responde a todo lo que oye. Cámbialo si hay mucho ruido o gente hablando." : "Solo responde cuando dices «H.A.L.O.».");
     }
     botonModo.addEventListener("click", function () {
         modoLibre = !modoLibre;
@@ -2032,17 +2033,17 @@ const NOMBRE_ASISTENTE = "Hermes";
         estado = nuevo;
         window.novaEstado = nuevo === "hablando" ? "esperando" : nuevo;
         const textos = {
-            apagado: "🎙 Activar a Hermes",
-            esperando: "🔴 Hermes está atenta · pulsa para apagar",
+            apagado: "🎙 Activar a H.A.L.O.",
+            esperando: "🔴 H.A.L.O. está atenta · pulsa para apagar",
             escuchando: "🟢 Te escucho...",
             pensando: "⏳ Pensando...",
-            hablando: "🔊 Hermes habla · di «Hermes, para» para cortarla",
+            hablando: "🔊 H.A.L.O. habla · di «H.A.L.O., para» para cortarla",
         };
         boton.textContent = tr(textos[nuevo]);
         estadoEl.textContent = mensaje || "";
     }
 
-    // Tono corto al activarse (como Alexa). Usa el mismo audio que la voz de Hermes.
+    // Tono corto al activarse (como Alexa). Usa el mismo audio que la voz de H.A.L.O.
     function tono(subida) {
         const ctx = asegurarAudio();
         if (!ctx) return;
@@ -2076,7 +2077,7 @@ const NOMBRE_ASISTENTE = "Hermes";
     function aEspera() {
         clearTimeout(temporizador);
         if (!activo) return;
-        ponerEstado("esperando", tr(dormida ? "En silencio. Di «Hermes» para volver a hablar" : modoLibre ? "Háblame cuando quieras" : "Di «Oye Hermes» y tu pregunta"));
+        ponerEstado("esperando", tr(dormida ? "En silencio. Di «H.A.L.O.» para volver a hablar" : modoLibre ? "Háblame cuando quieras" : "Di «Oye H.A.L.O.» y tu pregunta"));
         vaciarAlertasPendientes();
     }
 
@@ -2086,20 +2087,20 @@ const NOMBRE_ASISTENTE = "Hermes";
         temporizador = setTimeout(function () { if (estado === "escuchando") aEspera(); }, ms);
     }
 
-    // Tras hablar: modo seguimiento (puedes seguir sin decir "Hermes")
+    // Tras hablar: modo seguimiento (puedes seguir sin decir "H.A.L.O.")
     function trasHablar(seguimiento) {
         esperarFinVoz(function () {
             if (!activo) return;
             if (vaciarAlertasPendientes()) { esperarFinVoz(() => trasHablar(seguimiento)); return; }
             if (!seguimiento) { aEspera(); return; }
-            abrirEscucha(SEGUIMIENTO_MS, tr("Puedes seguir hablando, o di «Hermes» más tarde"));
+            abrirEscucha(SEGUIMIENTO_MS, tr("Puedes seguir hablando, o di «H.A.L.O.» más tarde"));
         });
     }
 
     function decir(texto, seguimiento = true) {
         if (seguimiento) ultimaRespuesta = texto;
         topeVozMs = Math.min(40000, 6000 + texto.length * 90);
-        // Si Hermes se encendió sola al abrir la página, el navegador no deja sonar audio hasta que
+        // Si H.A.L.O. se encendió sola al abrir la página, el navegador no deja sonar audio hasta que
         // el usuario toque la página una vez: la respuesta se ve en el subtítulo y se avisa.
         const sinGesto = navigator.userActivation && !navigator.userActivation.hasBeenActive;
         ponerEstado("hablando", sinGesto ? tr("Toca la página una vez para poder oír mi voz.") : "");
@@ -2122,7 +2123,7 @@ const NOMBRE_ASISTENTE = "Hermes";
         // Todo lo que no sea una orden corta y clara lo interpreta Gemini (entiende la intención, no palabras sueltas)
         const n = t.split(" ").filter(Boolean).length;
         if (n > 8) return null;
-        if (/^(gracias|muchas gracias|mil gracias|ok gracias|thanks|thank you)( hermes| ermes)?$/.test(t)) return tr("De nada. Aquí estoy.");
+        if (/^(gracias|muchas gracias|mil gracias|ok gracias|thanks|thank you)( halo| jalo| alo)?$/.test(t)) return tr("De nada. Aquí estoy.");
         if (/^(repite|repitelo|repitemelo|repite eso|otra vez|que dijiste|como dijiste|puedes repetir|no te entendi|repeat|say that again|what did you say)( por favor| please)?$/.test(t)) return ultimaRespuesta || tr("Aún no he dicho nada.");
         if (/^(dime )?(que hora es|la hora|que hora tenemos|what time is it|tell me the time)( por favor| please)?$/.test(t)) {
             const d = new Date();
@@ -2175,7 +2176,7 @@ const NOMBRE_ASISTENTE = "Hermes";
         if (rapido) {
             tono(true);
             const chat = document.getElementById("chat-ia");
-            [[tr("Astronauta: "), pregunta], ["Hermes: ", rapido]].forEach(function (p) {
+            [[tr("Astronauta: "), pregunta], ["H.A.L.O.: ", rapido]].forEach(function (p) {
                 const el = document.createElement("p");
                 el.textContent = p[0] + p[1];
                 chat.appendChild(el);
@@ -2190,7 +2191,7 @@ const NOMBRE_ASISTENTE = "Hermes";
         decir(resumenParaVoz(respuesta || tr("No pude responder ahora. Inténtalo de nuevo.")));
     }
 
-    // Las alertas automáticas esperan mientras Hermes conversa
+    // Las alertas automáticas esperan mientras H.A.L.O. conversa
     window.novaOcupada = function () {
         return activo && (estado === "escuchando" || estado === "pensando" || estado === "hablando");
     };
@@ -2207,10 +2208,10 @@ const NOMBRE_ASISTENTE = "Hermes";
             clearTimeout(temporizador);
             dormida = true;
             tono(false);
-            decir(tr("Hasta luego. Di «Hermes» cuando me necesites."), false);
+            decir(tr("Hasta luego. Di «H.A.L.O.» cuando me necesites."), false);
             return;
         }
-        // En silencio: solo despierta si la llaman por su nombre ("Hermes, ¿cómo estoy?")
+        // En silencio: solo despierta si la llaman por su nombre ("H.A.L.O., ¿cómo estoy?")
         if (dormida) {
             if (!conNombre || estado === "hablando") return;
             dormida = false;
@@ -2219,7 +2220,7 @@ const NOMBRE_ASISTENTE = "Hermes";
             return;
         }
 
-        // "Hermes, deja de escuchar" / "Hermes, stop listening": apaga el micrófono; tocar la página la vuelve a encender.
+        // "H.A.L.O., deja de escuchar" / "H.A.L.O., stop listening": apaga el micrófono; tocar la página la vuelve a encender.
         // Con su nombre funciona siempre; sin nombre, solo si ya la estabas llamando (o en modo conversación).
         // Va antes que "para/stop" porque "stop listening" también empieza con "stop".
         const ordenApagar = conNombre ? conNombre[1]
@@ -2227,13 +2228,13 @@ const NOMBRE_ASISTENTE = "Hermes";
         if (ordenApagar && APAGAR.test(ordenApagar)) {
             detenerVoz();
             tono(false);
-            apagar(tr("Hermes no está escuchando. Toca la página para volver a activarla."));
+            apagar(tr("H.A.L.O. no está escuchando. Toca la página para volver a activarla."));
             hablar(tr("De acuerdo, dejo de escuchar. Toca la pantalla cuando me necesites."));
             esperarPrimerToque();
             return;
         }
 
-        // Interrumpir: "Hermes, para" (funciona aunque esté hablando o pensando)
+        // Interrumpir: "H.A.L.O., para" (funciona aunque esté hablando o pensando)
         if (conNombre && PARAR.test(conNombre[1]) && conNombre[1].split(" ").length <= 3) {
             detenerVoz();
             tono(false);
@@ -2261,7 +2262,7 @@ const NOMBRE_ASISTENTE = "Hermes";
 
         if (estado !== "esperando") return;
 
-        // Modo conversación: cualquier frase es una pregunta (con o sin "Hermes" delante)
+        // Modo conversación: cualquier frase es una pregunta (con o sin "H.A.L.O." delante)
         if (modoLibre) {
             if (PARAR.test(t) && t.split(" ").length <= 2) return;          // "para", "silencio" sueltos
             const conN = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
@@ -2276,9 +2277,9 @@ const NOMBRE_ASISTENTE = "Hermes";
         if (!m) return;
         const resto = m[1].trim();
         if (resto.split(" ").filter(Boolean).length >= 2 || comandoRapido(resto)) {
-            atender(resto);                                   // "Hermes, ¿cómo estoy?" en una sola frase
+            atender(resto);                                   // "H.A.L.O., ¿cómo estoy?" en una sola frase
         } else {
-            tono(true);                                       // solo dijo "Hermes": tono y escucha
+            tono(true);                                       // solo dijo "H.A.L.O.": tono y escucha
             abrirEscucha(ESCUCHA_MS, tr("Te escucho"));
         }
     }
@@ -2295,7 +2296,7 @@ const NOMBRE_ASISTENTE = "Hermes";
                 const r = e.results[i];
                 const t = r[0].transcript;
                 if (r.isFinal) {
-                    // Mientras Hermes habla o piensa se procesa al instante (para poder decirle "para")
+                    // Mientras H.A.L.O. habla o piensa se procesa al instante (para poder decirle "para")
                     if (estado === "hablando" || estado === "pensando") { procesar(t); continue; }
                     const alts = [];
                     for (let k = 1; k < r.length; k++) if (r[k] && r[k].transcript) alts.push(r[k].transcript.trim());
@@ -2326,7 +2327,7 @@ const NOMBRE_ASISTENTE = "Hermes";
         reco.onend = function () {
             if (!activo) return;
             if (!microListo && ++reintentosSinAudio > 3) {
-                apagar(tr("Toca la página para que Hermes empiece a escuchar."));
+                apagar(tr("Toca la página para que H.A.L.O. empiece a escuchar."));
                 esperarPrimerToque();
                 return;
             }
@@ -2375,7 +2376,7 @@ const NOMBRE_ASISTENTE = "Hermes";
         arrancar();
         if (saludar) {
             tono(true);
-            decir(tr(modoLibre ? "Hola, soy Hermes. Te escucho, pregúntame lo que quieras." : "Hola, soy Hermes. Cuando me necesites, di «Oye Hermes»."), false);
+            decir(tr(modoLibre ? "Hola, soy H.A.L.O. Te escucho, pregúntame lo que quieras." : "Hola, soy H.A.L.O. Cuando me necesites, di «Oye H.A.L.O.»."), false);
         } else {
             aEspera();
         }
@@ -2384,11 +2385,11 @@ const NOMBRE_ASISTENTE = "Hermes";
         }, 5000);
     }
 
-    // Sin botón, como Siri o Google: Hermes siempre está atenta a «Oye Hermes».
+    // Sin botón, como Siri o Google: H.A.L.O. siempre está atenta a «Oye H.A.L.O.».
     boton.hidden = true;
 
     // Si el navegador no deja usar el micrófono hasta que el usuario interactúe,
-    // Hermes se enciende con el primer toque o tecla en cualquier parte de la página.
+    // H.A.L.O. se enciende con el primer toque o tecla en cualquier parte de la página.
     function esperarPrimerToque() {
         const alTocar = function () {
             ["pointerdown", "keydown"].forEach(ev => window.removeEventListener(ev, alTocar));
@@ -2401,7 +2402,7 @@ const NOMBRE_ASISTENTE = "Hermes";
     encender(false);
 })();
 
-// ===== Orbe de Hermes (animación de partículas en canvas) =====
+// ===== Orbe de H.A.L.O. (animación de partículas en canvas) =====
 (function () {
     const lienzo = document.getElementById("nova-orbe");
     if (!lienzo || !lienzo.getContext) return;
@@ -2496,7 +2497,7 @@ const NOMBRE_ASISTENTE = "Hermes";
     requestAnimationFrame(cuadro);
 })();
 
-// Subtítulo: muestra lo último que dijo Hermes (la transcripción completa queda oculta)
+// Subtítulo: muestra lo último que dijo H.A.L.O. (la transcripción completa queda oculta)
 (function () {
     const chat = document.getElementById("chat-ia");
     const sub = document.getElementById("nova-subtitulo");
@@ -2505,7 +2506,7 @@ const NOMBRE_ASISTENTE = "Hermes";
     new MutationObserver(function () {
         const ultimo = chat.lastElementChild;
         if (!ultimo) return;
-        const t = ultimo.textContent.replace(/^Hermes( \([^)]*\))?:\s*/, "").replace(/^(Astronauta|Astronaut):\s*/, tr("Tú: "));
+        const t = ultimo.textContent.replace(/^H\.A\.L\.O\.( \([^)]*\))?:\s*/, "").replace(/^(Astronauta|Astronaut):\s*/, tr("Tú: "));
         const frases = t.match(/[^.!?]+[.!?]?/g) || [t];
         let corto = frases.slice(0, 2).join("").trim();
         if (corto.length > 150) corto = corto.slice(0, 147).trim() + "…";
@@ -2526,7 +2527,7 @@ const TAREAS = [
     { id: "agua",      texto: "Beber al menos 2 litros de agua", puntos: 10 },
     { id: "ejercicio", texto: "Ejercicio de resistencia (huesos y músculo)", puntos: 25 },
     { id: "dormir",    texto: "Dormir 7 horas o más",            puntos: 15, auto: true },
-    { id: "alerta",    texto: "Responder a una alerta (consultar a Hermes)", puntos: 20, auto: true },
+    { id: "alerta",    texto: "Responder a una alerta (consultar a H.A.L.O.)", puntos: 20, auto: true },
 ];
 const LOGROS = [
     { id: "primera",   texto: "Primera sincronización",               cumple: j => j.mediciones >= 1 },
@@ -2622,6 +2623,7 @@ function pintarJuego() {
     const avance = Math.round(puntosHoy / puntosPosibles * 100);
     const nivel = Math.floor(juego.puntos / PUNTOS_POR_NIVEL) + 1;
     const ganados = LOGROS.filter(l => juego.logros[l.id]).length;
+    if (typeof pintarInicio === "function") setTimeout(pintarInicio, 0);
     const insignia = document.getElementById("nav-nivel");
     if (insignia) {
         insignia.textContent = tr("Nv. {n}", { n: nivel });
@@ -2663,7 +2665,7 @@ function pintarJuego() {
 
 pintarJuego();
 
-// Día de misión visible en el panel de Hermes
+// Día de misión visible en el panel de H.A.L.O.
 function actualizarDiaNova() {
     const el = document.getElementById("nova-dia");
     if (el) el.textContent = diaActual();
@@ -2748,7 +2750,7 @@ function actualizarDiaNova() {
 
     probar.addEventListener("click", function () {
         asegurarAudio();
-        hablar(tr("Hola, soy Hermes. Así sueno con estos ajustes."));
+        hablar(tr("Hola, soy H.A.L.O. Así sueno con estos ajustes."));
     });
 })();
 
@@ -2756,19 +2758,20 @@ function actualizarDiaNova() {
 // Cada opción del menú (barra lateral o barra superior en el celular) muestra solo su pantalla.
 // La dirección cambia a #vista-... para que «Atrás» del navegador y recargar la página funcionen.
 (function () {
-    const VISTAS = ["panel", "graficos", "mision"];
+    const VISTAS = ["inicio", "panel", "graficos", "mision"];
     // Direcciones de la versión anterior (una pantalla por sección)
-    const ANTIGUAS = { hermes: "panel", wearables: "panel", lecturas: "graficos", indicadores: "graficos" };
+    const ANTIGUAS = { asistente: "panel", wearables: "panel", lecturas: "graficos", indicadores: "graficos" };
     const migas = document.getElementById("migas-titulo");
 
     function vistaDeLaDireccion() {
         let v = (location.hash || "").replace("#vista-", "");
         v = ANTIGUAS[v] || v;
-        return VISTAS.includes(v) ? v : "panel";
+        return VISTAS.includes(v) ? v : "inicio";
     }
 
     function mostrarVista(v, cambiarDireccion) {
-        if (!VISTAS.includes(v)) v = "panel";
+        if (!VISTAS.includes(v)) v = "inicio";
+        if (v === "inicio" && typeof pintarInicio === "function") pintarInicio();
         document.querySelectorAll(".vista").forEach(function (s) { s.hidden = s.dataset.vista !== v; });
         document.querySelectorAll(".nav-link[data-ir], .nav-pill[data-ir]").forEach(function (a) {
             const activo = a.dataset.ir === v;
@@ -3053,4 +3056,251 @@ function actualizarDiaNova() {
         paso();
         reloj = setInterval(paso, 1000);
     });
+})();
+
+
+// ===== Inicio: bienvenida a bordo =====
+
+// Los números suben contando hasta su valor (si el usuario no pidió reducir el movimiento)
+// (var: pintarInicio puede llamarse antes de llegar a esta línea)
+var MOVIMIENTO_REDUCIDO = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+function contarHasta(el, valor) {
+    if (!el) return;
+    const destino = Number(valor) || 0;
+    const desde = Number(el.dataset.valor || 0);
+    el.dataset.valor = destino;
+    if (MOVIMIENTO_REDUCIDO || desde === destino) { el.textContent = destino; return; }
+    const inicio = performance.now(), dur = 700;
+    cancelAnimationFrame(el._cuenta);
+    (function paso(t) {
+        const k = Math.min(1, (t - inicio) / dur);
+        const suave = 1 - Math.pow(1 - k, 3);
+        el.textContent = Math.round(desde + (destino - desde) * suave);
+        if (k < 1) el._cuenta = requestAnimationFrame(paso);
+    })(inicio);
+}
+// Resumen de la misión con lo más importante y accesos rápidos al monitoreo y a H.A.L.O..
+function pintarInicio() {
+    const $ = id => document.getElementById(id);
+    if (!$("bv-dia")) return;
+    const habitat = document.getElementById("habitat").value;
+    const hab = HABITATS[habitat] || {};
+    const ultima = HISTORIAL.length ? HISTORIAL[HISTORIAL.length - 1] : null;
+    const conectado = temporizador !== null;
+
+    $("bv-planeta").dataset.habitat = habitat;
+    $("bv-destino").textContent = hab.nombre || "";
+    $("bv-retraso").textContent = hab.retrasoSeg >= 60
+        ? tr("Mensajes a Tierra: {n} min", { n: Math.round(hab.retrasoSeg / 60) })
+        : tr("Mensajes a Tierra: {n} s", { n: hab.retrasoSeg });
+    contarHasta($("bv-dia"), diaActual());
+    contarHasta($("bv-lecturas"), HISTORIAL.length);
+    contarHasta($("bv-puntos"), juego.puntos);
+
+    // Estado del sistema según la última lectura
+    let general = "sin-dato";
+    if (ultima) {
+        const estados = Object.values(ultima.resultados).map(r => r.estado);
+        general = estados.includes("rojo") ? "rojo" : estados.includes("amarillo") ? "amarillo" : "verde";
+    }
+    const etiqueta = { "sin-dato": tr("En espera"), verde: tr("Nominal"), amarillo: tr("Atención"), rojo: tr("Alerta") }[general];
+    $("bv-estado").dataset.estado = general;
+    $("bv-estado").querySelector("b").textContent = etiqueta;
+
+    // Wearable
+    $("bv-wear-estado").textContent = conectado ? tr("Conectado") : tr("Desconectado");
+    $("bv-wear-estado").dataset.on = conectado ? "1" : "";
+    $("bv-wear-nombre").textContent = wearableActual().nombre;
+    $("bv-wear-pie").textContent = conectado
+        ? tr("Envía una lectura cada {n} segundos.", { n: INTERVALO_MS / 1000 })
+        : tr("Pulsa «Iniciar monitoreo» para empezar.");
+    $("bv-iniciar").firstChild.textContent = (conectado ? tr("Ir al panel") : tr("Iniciar monitoreo")) + " ";
+
+    // Salud
+    const salud = $("bv-salud");
+    salud.textContent = ultima ? TEXTO_ESTADO[general] : tr("Sin lecturas");
+    salud.dataset.estado = general;
+    if (ultima) {
+        const alterados = Object.keys(ultima.resultados).filter(k => ["amarillo", "rojo"].includes(ultima.resultados[k].estado));
+        $("bv-salud-pie").textContent = alterados.length
+            ? tr("Revisa: {lista}.", { lista: alterados.map(k => NOMBRES[k].nombre.toLowerCase()).join(", ") })
+            : tr("Todos tus indicadores están en rango.");
+    } else {
+        $("bv-salud-pie").textContent = tr("Conecta el wearable para empezar.");
+    }
+
+    // Radiación
+    const ent = ultima ? ultima.entorno : null;
+    const pct = ent ? ent.porcentajeLimite : 0;
+    $("bv-rad").textContent = ent ? ent.radiacionMSv.toFixed(1) + " mSv" : "—";
+    $("bv-rad-pct").textContent = pct.toFixed(0) + "%";
+    $("bv-rad-barra").style.width = Math.min(100, pct) + "%";
+    $("bv-rad-barra").dataset.estado = pct >= 90 ? "rojo" : pct >= 50 ? "amarillo" : "verde";
+
+    // Tareas de hoy como línea de tiempo
+    prepararDia();
+    const hechas = TAREAS.filter(t => juego.hechas[t.id]).length;
+    $("bv-tareas-n").textContent = hechas + "/" + TAREAS.length;
+    const siguiente = TAREAS.find(t => !juego.hechas[t.id]);
+    $("bv-linea").innerHTML = TAREAS.slice(0, 4).map(t => {
+        const clase = juego.hechas[t.id] ? "hecha" : (t === siguiente ? "actual" : "");
+        const marca = juego.hechas[t.id] ? tr("Hecha") : (t === siguiente ? tr("Siguiente") : "");
+        return `<li class="${clase}"><span>${t.texto}</span>${marca ? `<em>${marca}</em>` : ""}</li>`;
+    }).join("");
+}
+
+(function () {
+    const iniciar = document.getElementById("bv-iniciar");
+    const botonHalo = document.getElementById("bv-halo");
+    if (iniciar) iniciar.addEventListener("click", function () {
+        if (temporizador === null) document.getElementById("btn-vivo").click();
+        window.irAVista("panel");
+    });
+    if (botonHalo) botonHalo.addEventListener("click", function () {
+        window.irAVista("panel");
+        const mic = document.getElementById("btn-microfono");
+        if (mic && !mic.hidden && /activar|start|turn on/i.test(mic.textContent)) mic.click();
+    });
+    ["habitat", "dia-mision"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", pintarInicio);
+    });
+    document.getElementById("btn-vivo").addEventListener("click", () => setTimeout(pintarInicio, 50));
+    pintarInicio();
+})();
+
+
+// ===== Animaciones del Inicio: estrellas que titilan, estrellas fugaces y un satélite en órbita =====
+(function () {
+    const lienzo = document.getElementById("bv-estrellas");
+    const satelite = document.getElementById("bv-satelite");
+    const caja = lienzo && lienzo.closest(".bienvenida");
+    if (!lienzo || !caja || !lienzo.getContext) return;
+    const ctx = lienzo.getContext("2d");
+    let estrellas = [], fugaces = [], ancho = 0, alto = 0, dpr = 1;
+
+    function ajustar() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        ancho = caja.clientWidth; alto = caja.clientHeight;
+        lienzo.width = Math.round(ancho * dpr); lienzo.height = Math.round(alto * dpr);
+        lienzo.style.width = ancho + "px"; lienzo.style.height = alto + "px";
+        const n = Math.round(ancho * alto / 4500);
+        estrellas = Array.from({ length: n }, () => ({
+            x: Math.random() * ancho, y: Math.random() * alto,
+            r: Math.random() < 0.85 ? Math.random() * 0.9 + 0.3 : Math.random() * 1.4 + 0.9,
+            fase: Math.random() * Math.PI * 2, vel: 0.6 + Math.random() * 1.8,
+        }));
+    }
+    if (window.ResizeObserver) new ResizeObserver(ajustar).observe(caja);
+    ajustar();
+
+    function visible() { return caja.offsetParent !== null && !document.hidden; }
+
+    function dibujar(t) {
+        requestAnimationFrame(dibujar);
+        if (!visible() || !ancho) return;
+        const s = t / 1000;
+        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, ancho, alto);
+        for (const e of estrellas) {
+            const brillo = MOVIMIENTO_REDUCIDO ? 0.7 : 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(s * e.vel + e.fase));
+            ctx.globalAlpha = brillo;
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+        }
+        // Estrella fugaz de vez en cuando
+        if (!MOVIMIENTO_REDUCIDO && Math.random() < 0.004 && fugaces.length < 2) {
+            fugaces.push({ x: Math.random() * ancho * 0.7, y: Math.random() * alto * 0.4, vida: 0 });
+        }
+        fugaces = fugaces.filter(f => f.vida < 1);
+        for (const f of fugaces) {
+            f.vida += 0.018;
+            const x = f.x + f.vida * 260, y = f.y + f.vida * 110;
+            const g = ctx.createLinearGradient(x - 70, y - 30, x, y);
+            g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, "rgba(255,255,255,.9)");
+            ctx.globalAlpha = 1 - f.vida;
+            ctx.strokeStyle = g; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(x - 70, y - 30); ctx.lineTo(x, y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+
+        // Satélite sobre la órbita (elipse inclinada); pasa por detrás del planeta en la mitad superior
+        if (satelite) {
+            const escena = satelite.parentElement;
+            const w = escena.clientWidth, h = escena.clientHeight;
+            const a = w * 0.56, b = h * 0.23, giro = -18 * Math.PI / 180;
+            const ang = MOVIMIENTO_REDUCIDO ? 0.6 : s * 0.45;
+            const ox = a * Math.cos(ang), oy = b * Math.sin(ang);
+            const x = w / 2 + ox * Math.cos(giro) - oy * Math.sin(giro);
+            const y = h / 2 + ox * Math.sin(giro) + oy * Math.cos(giro);
+            satelite.style.transform = `translate(${x}px, ${y}px)`;
+            satelite.classList.toggle("detras", Math.sin(ang) < 0);
+        }
+    }
+    requestAnimationFrame(dibujar);
+})();
+
+
+// ===== Cielo de estrellas en el resto de pantallas (combina con el Inicio) =====
+// Estrellas que titilan y se desplazan muy despacio, con alguna estrella fugaz.
+// En el Inicio no se dibuja (ya tiene su propio cielo) y se pausa si la pestaña no está visible.
+(function () {
+    const lienzo = document.getElementById("fondo-estrellas");
+    if (!lienzo || !lienzo.getContext) return;
+    const ctx = lienzo.getContext("2d");
+    const quieto = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    let estrellas = [], fugaces = [], ancho = 0, alto = 0, dpr = 1, ultimo = 0;
+
+    function ajustar() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        ancho = window.innerWidth; alto = window.innerHeight;
+        lienzo.width = Math.round(ancho * dpr); lienzo.height = Math.round(alto * dpr);
+        const n = Math.round(ancho * alto / 6000);
+        estrellas = Array.from({ length: n }, () => ({
+            x: Math.random() * ancho, y: Math.random() * alto,
+            r: Math.random() < 0.9 ? Math.random() * 0.8 + 0.25 : Math.random() * 1.3 + 0.8,
+            fase: Math.random() * Math.PI * 2, vel: 0.5 + Math.random() * 1.6,
+            deriva: 0.02 + Math.random() * 0.06,       // capas más lejanas se mueven más lento
+            azul: Math.random() < 0.25,
+        }));
+    }
+    window.addEventListener("resize", ajustar);
+    ajustar();
+
+    function enInicio() {
+        const v = document.querySelector('.vista[data-vista="inicio"]');
+        return v && !v.hidden;
+    }
+
+    function dibujar(t) {
+        requestAnimationFrame(dibujar);
+        const activo = !document.hidden && !enInicio();
+        lienzo.style.opacity = activo ? "1" : "0";
+        if (!activo) return;
+        const dt = Math.min(50, t - (ultimo || t)); ultimo = t;
+        const s = t / 1000;
+        if (ctx.setTransform) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, ancho, alto);
+        for (const e of estrellas) {
+            if (!quieto) { e.x -= e.deriva * dt / 16; if (e.x < -2) { e.x = ancho + 2; e.y = Math.random() * alto; } }
+            ctx.globalAlpha = quieto ? 0.6 : 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(s * e.vel + e.fase));
+            ctx.fillStyle = e.azul ? "#bfe8ff" : "#ffffff";
+            ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctx.fill();
+        }
+        if (!quieto && Math.random() < 0.0025 && fugaces.length < 1) {
+            fugaces.push({ x: ancho * (0.3 + Math.random() * 0.7), y: Math.random() * alto * 0.35, vida: 0 });
+        }
+        fugaces = fugaces.filter(f => f.vida < 1);
+        for (const f of fugaces) {
+            f.vida += 0.016;
+            const x = f.x - f.vida * 300, y = f.y + f.vida * 120;
+            const g = ctx.createLinearGradient(x + 80, y - 32, x, y);
+            g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, "rgba(220,240,255,.9)");
+            ctx.globalAlpha = 1 - f.vida;
+            ctx.strokeStyle = g; ctx.lineWidth = 1.3;
+            ctx.beginPath(); ctx.moveTo(x + 80, y - 32); ctx.lineTo(x, y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+    requestAnimationFrame(dibujar);
 })();

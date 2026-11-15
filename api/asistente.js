@@ -34,7 +34,7 @@ function respuestaLocal(m) {
 }
 
 function construirPrompt(pregunta, m, e) {
-    return `Te llamas HERMES (Health Evaluation and Remote Medical Expert System) y eres el sistema de salud a bordo de astronautas en misiones de larga duración.
+    return `Te llamas H.A.L.O. (Health Assessment and Life-support Operations) y eres el sistema de salud a bordo de astronautas en misiones de larga duración.
 Tu respuesta se LEE EN VOZ ALTA: habla como en una conversación, en español simple, con 2 o 3 frases cortas como máximo.
 Reglas de estilo:
 - No uses listas, viñetas, símbolos ni formato.

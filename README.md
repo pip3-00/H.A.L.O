@@ -17,12 +17,12 @@ En misiones largas, la radiación espacial, el aislamiento, la gravedad alterada
 - **Gráficos:** una lectura cada 10 s, con el día de misión en el eje inferior solo cuando cambia.
 - **Datos simulados:** botón "Iniciar datos simulados", con escenarios normal, fiebre, hipotensión e hipoglucemia. El día de misión avanza solo.
 - **Voz:** la app habla solo cuando un valor sale de rango, y también anuncia el aviso a Tierra.
-- **HERMES (Health Evaluation and Remote Medical Expert System), asistente por voz (Gemini):** responde por voz sin tener que decir su nombre (modo conversación) o solo al decir "Hermes" (modo nombre); "adiós" o "hasta luego" la deja en silencio. Responde preguntas usando las mediciones y el historial de la sesión. Si Gemini falla, responde con reglas locales.
+- **H.A.L.O. (Health Assessment and Life-support Operations), asistente por voz (Gemini):** responde por voz sin tener que decir su nombre (modo conversación) o solo al decir "H.A.L.O." (modo nombre); "adiós" o "hasta luego" la deja en silencio. Responde preguntas usando las mediciones y el historial de la sesión. Si Gemini falla, responde con reglas locales.
 - **Reloj simulado:** botón "Ver simulación". Es un reloj que cambia de estado con cada lectura y vibra en atención y alerta (en dispositivos compatibles). El diseño está hecho en Figma.
 
 ## Tecnología
 
-- **Python (lógica):** `api/evaluar.py` calcula el semáforo de cada indicador, el estado general y el entorno (radiación, pérdida ósea, gravedad). `api/voz.py` genera la voz de Hermes con Gemini TTS (voz «Kore»); si no está disponible se usa la voz del navegador. `api/nova.py` es el proxy hacia Gemini (`gemini-flash-lite-latest`, límite de 8 s) con respaldo por reglas.
+- **Python (lógica):** `api/evaluar.py` calcula el semáforo de cada indicador, el estado general y el entorno (radiación, pérdida ósea, gravedad). `api/voz.py` genera la voz de H.A.L.O. con Gemini TTS (voz «Kore»); si no está disponible se usa la voz del navegador. `api/nova.py` es el proxy hacia Gemini (`gemini-flash-lite-latest`, límite de 8 s) con respaldo por reglas.
 - **JavaScript (interfaz):** `public/app.js` pinta resultados, gráficos en `canvas`, voz (Web Speech API), el reloj y la línea base personal. Si el servidor no responde, usa una copia local del mismo cálculo para que la app no se detenga.
 
 ## Estructura
@@ -34,8 +34,8 @@ public/
   app.js
 api/
   evaluar.py         # lógica de salud (Python)
-  nova.py            # asistente Hermes: proxy a Gemini (Python)
-  voz.py             # voz de Hermes: Gemini TTS -> WAV (Python)
+  nova.py            # asistente H.A.L.O.: proxy a Gemini (Python)
+  voz.py             # voz de H.A.L.O.: Gemini TTS -> WAV (Python)
   asistente.js       # versión anterior del proxy, queda de respaldo
 servidor_local.py    # para probar en tu computadora
 vercel.json          # { "outputDirectory": "public" }
@@ -47,7 +47,7 @@ vercel.json          # { "outputDirectory": "public" }
 
 **En tu computadora:** ejecuta `python servidor_local.py` y abre `http://localhost:8000`. No uses Live Server: no ejecuta las funciones de `api/`.
 
-Sin la clave de Gemini la app funciona igual y Hermes responde con reglas.
+Sin la clave de Gemini la app funciona igual y H.A.L.O. responde con reglas.
 
 ## Límites conocidos
 

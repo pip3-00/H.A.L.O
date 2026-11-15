@@ -6,11 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="vendor/bootstrap.min.css">
     <link rel="stylesheet" href="style.css">
-    <title>run3rs · Monitor de salud</title>
+    <title>H.A.L.O.</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2334e39b'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%2304140d' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
 </head>
 
 <body>
+<!-- Cielo de estrellas animado detrás del Panel, Gráficos y Misión salud (como en el Inicio) -->
+<canvas id="fondo-estrellas" aria-hidden="true"></canvas>
 <div class="app d-flex">
 
     <!-- Barra lateral -->
@@ -18,7 +20,8 @@
         <div class="logo d-flex align-items-center gap-2"><span class="logo-marca">✚</span><span>run3rs</span></div>
         <nav class="nav flex-column mt-4" aria-label="Secciones">
             <span class="nav-titulo">General</span>
-            <a class="nav-link activo" href="#vista-panel" data-ir="panel">Panel</a>
+            <a class="nav-link activo" href="#vista-inicio" data-ir="inicio">Inicio</a>
+            <a class="nav-link" href="#vista-panel" data-ir="panel">Panel</a>
             <a class="nav-link" href="#vista-graficos" data-ir="graficos">Gráficos</a>
             <a class="nav-link nav-mision" href="#vista-mision" data-ir="mision" data-titulo="Misión salud"><span>Misión salud</span> <span class="nav-insignia" id="nav-nivel"></span></a>
             <button type="button" class="nav-link nav-ajustes" data-abrir-ajustes>⚙ Ajustes</button>
@@ -45,7 +48,8 @@
 
         <!-- Navegación en pantallas pequeñas (en escritorio está la barra lateral) -->
         <nav class="nav-movil d-lg-none" aria-label="Secciones">
-            <a class="nav-pill activo" href="#vista-panel" data-ir="panel">Panel</a>
+            <a class="nav-pill activo" href="#vista-inicio" data-ir="inicio">Inicio</a>
+            <a class="nav-pill" href="#vista-panel" data-ir="panel">Panel</a>
             <a class="nav-pill" href="#vista-graficos" data-ir="graficos">Gráficos</a>
             <a class="nav-pill" href="#vista-mision" data-ir="mision">Misión salud</a>
         </nav>
@@ -54,8 +58,61 @@
         <div id="aviso-tierra"></div>
 
         <!-- Cada opción del menú muestra solo su pantalla -->
-        <!-- Panel: resumen, wearable y HERMES -->
-        <section class="vista" data-vista="panel">
+        <!-- Panel: resumen, wearable y H.A.L.O. -->
+        <!-- Inicio: bienvenida a bordo -->
+        <section class="vista" data-vista="inicio" hidden>
+            <div class="bienvenida">
+                <canvas class="bv-estrellas" id="bv-estrellas" aria-hidden="true"></canvas>
+                <div class="bv-texto">
+                    <span class="bv-estado" id="bv-estado"><i></i> <span>Estado del sistema</span> · <b>Nominal</b></span>
+                    <h1 class="bv-titulo"><span class="bv-linea-titulo">WELCOME</span><span class="bv-linea-titulo">TO</span><em class="bv-linea-titulo">H.A.L.O.</em></h1>
+                    <p class="bv-sub">Bienvenido a bordo, astronauta. H.A.L.O. vigila tu salud durante toda la misión: tus indicadores, tus alertas y qué hacer en cada momento, aunque la Tierra esté a minutos de distancia.</p>
+                    <div class="bv-botones">
+                        <button type="button" class="bv-btn bv-btn-claro" id="bv-iniciar">Iniciar monitoreo <span aria-hidden="true">↗</span></button>
+                        <button type="button" class="bv-btn bv-btn-borde" id="bv-halo">Hablar con H.A.L.O. <span aria-hidden="true">＋</span></button>
+                    </div>
+                </div>
+                <div class="bv-escena" aria-hidden="true">
+                    <div class="bv-halo"></div>
+                    <div class="bv-orbita"></div>
+                    <div class="bv-satelite" id="bv-satelite"><i></i></div>
+                    <div class="bv-planeta" id="bv-planeta" data-habitat="marte"></div>
+                    <div class="bv-luna"></div>
+                    <div class="bv-destino"><span>Destino</span><b id="bv-destino">Base en Marte</b><small id="bv-retraso"></small></div>
+                </div>
+                <ul class="bv-datos">
+                    <li><b id="bv-dia">1</b><span>Día de misión</span></li>
+                    <li><b id="bv-lecturas">0</b><span>Lecturas</span></li>
+                    <li><b id="bv-puntos">0</b><span>Puntos</span></li>
+                </ul>
+            </div>
+            <div class="bv-tarjetas">
+                <div class="bv-tarjeta">
+                    <div class="bv-cab"><span>Wearable</span><b id="bv-wear-estado">—</b></div>
+                    <p class="bv-grande" id="bv-wear-nombre">—</p>
+                    <p class="bv-pie" id="bv-wear-pie"></p>
+                </div>
+                <div class="bv-tarjeta">
+                    <div class="bv-cab"><span>Tu salud</span><b>H.A.L.O.</b></div>
+                    <p class="bv-grande" id="bv-salud">Sin lecturas</p>
+                    <p class="bv-pie" id="bv-salud-pie">Conecta el wearable para empezar.</p>
+                    <button type="button" class="bv-mini" data-ir="panel">Ver panel ↗</button>
+                </div>
+                <div class="bv-tarjeta">
+                    <div class="bv-cab"><span>Radiación</span><b id="bv-rad-pct">0%</b></div>
+                    <p class="bv-grande" id="bv-rad">0 mSv</p>
+                    <div class="bv-barra"><i id="bv-rad-barra"></i></div>
+                    <p class="bv-pie">Límite de carrera NASA: 600 mSv</p>
+                </div>
+                <div class="bv-tarjeta">
+                    <div class="bv-cab"><span>Tareas de hoy</span><b id="bv-tareas-n">0/6</b></div>
+                    <ol class="bv-linea" id="bv-linea"></ol>
+                    <button type="button" class="bv-mini" data-ir="mision">Misión salud ↗</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="vista" data-vista="panel" hidden>
             <div class="saludo">
                 <h1>Hola, astronauta</h1>
                 <p id="saludo-sub">Resumen de tu salud en la misión</p>
@@ -69,38 +126,21 @@
                 <div class="col kpi" id="kpi-radiacion"><span class="kpi-icono">☢</span><span class="kpi-etq">Radiación acumulada</span><b class="kpi-valor">—</b><span class="kpi-pie">—</span></div>
             </div>
         </div>
-            <div class="row g-3 mb-3">
-                <div class="col-xl-8">
-                <div class="tarjeta-dash" id="tarjeta-wearable">
-                    <div class="cab-dash"><div><h2>Wearable</h2><p>Elige el dispositivo que simula las lecturas</p></div>
-                        <button type="button" id="btn-reloj" class="btn btn-contorno btn-sm">Ver simulación</button></div>
-                    <div id="reloj-panel" hidden>
-                <div class="wearable-carrusel">
-                    <button type="button" id="wear-prev" class="wear-flecha" aria-label="Wearable anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                    <div class="wearable-centro">
-                        <p id="wear-nombre" aria-live="polite"></p>
-                        <div id="reloj"></div>
-                        <p id="wear-sensores"></p>
-                    </div>
-                    <button type="button" id="wear-next" class="wear-flecha" aria-label="Wearable siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                </div>
-            </div>
-                </div>
-                </div>
-                <div class="col-xl-4">
+            <!-- 1. H.A.L.O. primero -->
+            <div class="mb-3 panel-halo">
                 <section id="seccion-asistente" class="tarjeta-dash">
     <div class="nova-cabecera">
-        <h3 title="Health Evaluation and Remote Medical Expert System">HERMES · evaluación de salud a bordo</h3>
+        <h3 title="Health Assessment and Life-support Operations">H.A.L.O. · evaluación de salud a bordo</h3>
         <div class="juego-dia"><span>Día de misión</span><b id="nova-dia">1</b></div>
     </div>
 
     <div class="nova-escenario">
         <canvas id="nova-orbe" aria-hidden="true"></canvas>
-        <p id="nova-subtitulo" aria-live="polite">Di «Oye Hermes» y háblale.</p>
+        <p id="nova-subtitulo" aria-live="polite">Di «Oye H.A.L.O.» y háblale.</p>
     </div>
 
     <div id="controles-voz">
-        <button type="button" id="btn-microfono" hidden>🎙 Activar a Hermes</button>
+        <button type="button" id="btn-microfono" hidden>🎙 Activar a H.A.L.O.</button>
         <span id="estado-microfono" aria-live="polite"></span>
     </div>
 
@@ -121,12 +161,29 @@
         </div>
 
         <button type="submit" id="btn-asistente">
-            Consultar a Hermes
+            Consultar a H.A.L.O.
         </button>
     </form>
 
     <div id="chat-ia" hidden></div>
 </section>
+            </div>
+            <!-- 2. Simulación del wearable debajo -->
+            <div class="mb-3">
+                <div class="tarjeta-dash" id="tarjeta-wearable">
+                    <div class="cab-dash"><div><h2>Wearable</h2><p>Elige el dispositivo que simula las lecturas</p></div>
+                        <button type="button" id="btn-reloj" class="btn btn-contorno btn-sm">Ver simulación</button></div>
+                    <div id="reloj-panel" hidden>
+                <div class="wearable-carrusel">
+                    <button type="button" id="wear-prev" class="wear-flecha" aria-label="Wearable anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <div class="wearable-centro">
+                        <p id="wear-nombre" aria-live="polite"></p>
+                        <div id="reloj"></div>
+                        <p id="wear-sensores"></p>
+                    </div>
+                    <button type="button" id="wear-next" class="wear-flecha" aria-label="Wearable siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+            </div>
                 </div>
             </div>
             <div class="row g-3">

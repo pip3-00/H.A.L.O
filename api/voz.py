@@ -1,4 +1,4 @@
-# api/voz.py · run3rs — voz de Hermes (Python, Vercel Serverless Function)
+# api/voz.py · run3rs — voz de H.A.L.O. (Python, Vercel Serverless Function)
 # Convierte texto en audio con Gemini TTS y lo devuelve como WAV en base64.
 # Si falla (sin clave, modelo no disponible, tiempo agotado), responde {"audio": null}
 # y el navegador usa su voz de respaldo.
@@ -6,15 +6,19 @@ import base64
 import io
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 import wave
 from http.server import BaseHTTPRequestHandler
 
-MODELO_VOZ = "gemini-2.5-flash-preview-tts"
-# Voz prediseñada de Gemini para HERMES: "Charon" es masculina, calmada e informativa.
-# Otras masculinas: "Orus" (firme), "Puck" (alegre), "Achird" (amigable). Se puede cambiar con HERMES_VOZ.
-VOZ = os.environ.get("HERMES_VOZ", "Charon")
+# Modelos de voz de Gemini en orden de preferencia. "gemini-2.5-flash-preview-tts" se retira el
+# 17 de noviembre de 2026; sus reemplazos son los 3.8. Si uno no existe (404), se prueba el siguiente.
+MODELOS_VOZ = [m for m in [os.environ.get("HALO_MODELO_VOZ"), "gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts",
+                           "gemini-2.5-flash-preview-tts"] if m]
+# Voz prediseñada de Gemini para H.A.L.O.: "Charon" es masculina, calmada e informativa.
+# Otras masculinas: "Orus" (firme), "Puck" (alegre), "Achird" (amigable). Se puede cambiar con HALO_VOZ.
+VOZ = os.environ.get("HALO_VOZ") or "Charon"
 TIMEOUT_S = 12
 MAX_CARACTERES = 600
 
@@ -56,6 +60,7 @@ def responder(cuerpo):
     if not isinstance(cuerpo, dict):
         return 400, {"error": "Solicitud inválida."}
     texto = " ".join(str(cuerpo.get("texto") or "").split())[:MAX_CARACTERES]
+    texto = re.sub(r"H\.A\.L\.O\.(?=\s+[A-ZÁÉÍÓÚÑ¿¡])", "Halo.", texto).replace("H.A.L.O.", "Halo").replace("H.A.L.O", "Halo")   # se pronuncia, no se deletrea
     if not texto:
         return 400, {"error": "Falta el texto."}
     idioma = "en" if cuerpo.get("idioma") == "en" else "es"
@@ -68,7 +73,6 @@ def responder(cuerpo):
     if not clave:
         return 200, {"audio": None, "fuente": "sin API key"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO_VOZ}:generateContent?key={clave}"
     carga = json.dumps({
         "contents": [{"parts": [{"text": instruccion_voz(idioma, velocidad) + texto}]}],
         "generationConfig": {
@@ -76,17 +80,26 @@ def responder(cuerpo):
             "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": VOZ}}},
         },
     }).encode("utf-8")
-    peticion = urllib.request.Request(url, data=carga, headers={"Content-Type": "application/json"}, method="POST")
 
-    try:
-        with urllib.request.urlopen(peticion, timeout=TIMEOUT_S) as r:
-            datos = json.loads(r.read().decode("utf-8"))
-        parte = datos["candidates"][0]["content"]["parts"][0]["inlineData"]
-        pcm = base64.b64decode(parte["data"])
-    except urllib.error.HTTPError as err:
-        return 200, {"audio": None, "fuente": f"Gemini TTS {err.code}"}
-    except Exception as err:
-        return 200, {"audio": None, "fuente": f"error: {type(err).__name__}"}
+    pcm, parte, ultimo_error = None, {}, "sin intentar"
+    for modelo in MODELOS_VOZ:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={clave}"
+        peticion = urllib.request.Request(url, data=carga, headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(peticion, timeout=TIMEOUT_S) as r:
+                datos = json.loads(r.read().decode("utf-8"))
+            parte = datos["candidates"][0]["content"]["parts"][0]["inlineData"]
+            pcm = base64.b64decode(parte["data"])
+            break
+        except urllib.error.HTTPError as err:
+            ultimo_error = f"Gemini TTS {err.code} ({modelo})"
+            if err.code in (400, 404):      # modelo inexistente o retirado: probar el siguiente
+                continue
+            return 200, {"audio": None, "fuente": ultimo_error}
+        except Exception as err:
+            return 200, {"audio": None, "fuente": f"error: {type(err).__name__}"}
+    if pcm is None:
+        return 200, {"audio": None, "fuente": ultimo_error}
 
     if not pcm:
         return 200, {"audio": None, "fuente": "audio vacío"}

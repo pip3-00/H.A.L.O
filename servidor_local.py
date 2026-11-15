@@ -1,7 +1,7 @@
 # servidor_local.py · run3rs — servidor para probar en tu computadora (en lugar de Live Server).
 # Sirve la carpeta public/ y ejecuta las funciones Python de api/ igual que en Vercel.
 # Uso:  python servidor_local.py      y abre  http://localhost:8000
-# Para que Hermes use Gemini:  define la variable de entorno GEMINI_API_KEY antes de ejecutarlo.
+# Para que H.A.L.O. use Gemini:  define la variable de entorno GEMINI_API_KEY antes de ejecutarlo.
 import importlib.util
 import json
 import os
@@ -23,6 +23,11 @@ def cargar(nombre):
 
 
 class Servidor(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        # Sin caché: al recargar siempre se ve la última versión de los archivos
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
+
     def do_POST(self):
         nombre = self.path.split("?")[0].strip("/").removeprefix("api/")
         modulo = cargar(nombre) if nombre.isidentifier() and self.path.startswith("/api/") else None
