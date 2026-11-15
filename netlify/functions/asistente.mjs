@@ -1,5 +1,5 @@
 // netlify/functions/asistente.mjs
-const MODELO = "gemini-2.5-flash-lite";
+const MODELO = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 8000;
 
 const json = (obj, status = 200) =>
@@ -63,8 +63,15 @@ export default async (req) => {
     }
 
     const pregunta = (body.pregunta || "").trim();
-    const m = body.mediciones || {};
-    const e = body.entorno || {};
+    const ctx = body.contexto || {};
+    const m = ctx.mediciones || body.mediciones || {};
+    const e = {
+        habitat: ctx.habitat,
+        diaMision: ctx.diaMision,
+        estadoGeneral: ctx.estadoGeneral,
+        resultados: ctx.resultados,
+        ...(ctx.entorno || body.entorno || {})
+    };
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -85,8 +92,7 @@ export default async (req) => {
                     contents: [{ parts: [{ text: construirPrompt(pregunta, m, e) }] }],
                     generationConfig: {
                         maxOutputTokens: 400,
-                        temperature: 0.4,
-                        thinkingConfig: { thinkingBudget: 0 }
+                        temperature: 0.4
                     }
                 })
             }
