@@ -300,7 +300,20 @@ function dibujarGrafico(idCanvas, dias, series) {
     ctx.font = "11px Arial";
     ctx.textAlign = "center";
 
-    
+
+       dias.forEach((dia, i) => {          // <-- aquí pegas tu bloque
+        if (i > 0 && dia === dias[i - 1]) return;
+        const x = posicionX(i);
+        ctx.fillText("D" + dia, x, alto - margenInferior + 20);
+        if (i > 0) {
+            ctx.strokeStyle = "#444";
+            ctx.beginPath();
+            ctx.moveTo(x, margenSuperior);
+            ctx.lineTo(x, alto - margenInferior);
+            ctx.stroke();
+        }
+    });
+
         const pasoEtiqueta = Math.ceil(dias.length / 10);
     dias.forEach((dia, i) => {
         if (i % pasoEtiqueta !== 0) return;
@@ -401,37 +414,25 @@ function dibujarGrafico(idCanvas, dias, series) {
 
 
 function graficarHistorial() {
-    const porDia = {};
-    HISTORIAL.forEach(h => {
-        const dia = h.diaMision;
-        if (!porDia[dia]) porDia[dia] = { temp: [], freq: [], sist: [], diast: [], gluc: [], sueno: [], animo: [] };
-        porDia[dia].temp.push(h.mediciones.temperatura);
-        porDia[dia].freq.push(h.mediciones.frecuencia);
-        porDia[dia].sist.push(h.mediciones.sistolica);
-        porDia[dia].diast.push(h.mediciones.diastolica);
-        porDia[dia].gluc.push(h.mediciones.glucosa);
-        porDia[dia].sueno.push(h.mediciones.sueno);
-        porDia[dia].animo.push(h.mediciones.animo);
-    });
+    const lecturas = HISTORIAL.slice(-30);
+    if (lecturas.length < 1) return;
+    const dias = lecturas.map ( h => h.diaMision);
+    const col = clave => lecturas.map(h => h.mediciones[clave]);
 
-    const dias = Object.keys(porDia).map(Number).sort((a, b) => a - b);
-    if (dias.length < 1) return;
-
-    // Gráfico 1: Signos vitales
     dibujarGrafico("grafica-vitales", dias, [
-        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: dias.map(d => promedio(porDia[d].temp)) },
-        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: dias.map(d => promedio(porDia[d].freq)) },
-        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: dias.map(d => promedio(porDia[d].sist)) },
-        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: dias.map(d => promedio(porDia[d].diast)) },
-        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: dias.map(d => promedio(porDia[d].gluc)) },
+        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: col("temperatura") },
+        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: col("frecuencia") },
+        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: col("sistolica") },
+        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: col("diastolica") },
+        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: col("glucosa") },
     ]);
 
-    // Gráfico 2: Bienestar
     dibujarGrafico("grafica-bienestar", dias, [
-        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: dias.map(d => promedio(porDia[d].sueno)) },
-        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: dias.map(d => promedio(porDia[d].animo)) },
+        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: col("sueno") },
+        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: col("animo") },
     ]);
 }
+
 
 function mostrarEntorno(entorno) {
     const panel = document.getElementById("panel-entorno");
@@ -596,6 +597,7 @@ function procesar() {
     mostrarEntorno(entorno);
 
     registrarLectura(mediciones, resultados, entorno);
+    graficarHistorial();
     avisarTierra(resultados);
 
 }
@@ -617,7 +619,14 @@ botonAstroskin.addEventListener("click", function () {
 let temporizador = null;
 const botonVivo = document.getElementById("btn-vivo");
 
+let lecturasEnVivo = 0;
+
 function cicloEnVivo() {
+    if (lecturasEnVivo > 0 && lecturasEnVivo % 6 === 0) {   // 6 lecturas x 10 s = 1 día por minuto
+        const campoDia = document.getElementById("dia-mision");
+        campoDia.value = Number(campoDia.value) + 1;
+    }
+    lecturasEnVivo++;
     simularAstroskin();
     procesar();
 }
