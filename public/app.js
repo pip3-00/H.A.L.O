@@ -229,15 +229,71 @@ function sincronizarCaras() {
     sincronizarCaras();
 })();
 
+// ===== Wearables disponibles para simular =====
+// Cada uno mide indicadores distintos. Lo que el wearable no mide queda "sin dato".
+// La glucosa siempre llega de un parche continuo aparte y el ánimo lo registra el astronauta.
+const WEARABLES = [
+    { id: "reloj", nombre: "Reloj inteligente (prototipo run3rs)", forma: "reloj",
+      mide: ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"],
+      extras: ["spo2", "actividad"],
+      nota: "Tu prototipo de reloj: pulso óptico y electrocardiograma, oxígeno en sangre, temperatura de la piel, sueño y actividad. La presión es una estimación que hay que calibrar con un tensiómetro de brazo. Pantalla en la muñeca: muestra alertas y vibra." },
+    { id: "whoop", nombre: "Banda WHOOP MG", forma: "whoop",
+      mide: ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"],
+      extras: ["spo2", "resp", "vfc", "actividad"],
+      nota: "Pulso óptico, variabilidad cardíaca, frecuencia respiratoria, oxígeno en sangre, temperatura de la piel, sueño y esfuerzo. La presión es una estimación diaria al despertar (función beta que se calibra con brazalete). Sin pantalla: vibra y los datos se ven en la app." },
+    { id: "biomonitor", nombre: "Bio-Monitor (Agencia Espacial Canadiense)", forma: "biomonitor",
+      mide: ["temperatura", "frecuencia", "sistolica", "diastolica"],
+      extras: ["spo2", "resp", "volumen", "actividad"],
+      nota: "Camiseta inteligente y diadema de la Estación Espacial. Mide pulso y electrocardiograma, presión arterial, frecuencia y volumen respiratorio, temperatura de la piel, oxígeno en sangre (diadema) y actividad física. No mide el sueño. Sin pantalla: los datos se ven en la tableta y bajan a la Tierra." },
+];
+const SIEMPRE = ["glucosa", "animo"];
+let indiceWearable = 0;
+try { indiceWearable = Math.max(0, WEARABLES.findIndex(w => w.id === localStorage.getItem("run3rs-wearable"))); } catch (_) {}
+
+function wearableActual() { return WEARABLES[indiceWearable]; }
+
+function wearableMide(clave) {
+    return SIEMPRE.includes(clave) || wearableActual().mide.includes(clave);
+}
+
+function pintarWearable() {
+    const w = wearableActual();
+    const nombre = document.getElementById("wear-nombre");
+    const sensores = document.getElementById("wear-sensores");
+    if (nombre) nombre.textContent = `${w.nombre}  ·  ${indiceWearable + 1} de ${WEARABLES.length}`;
+    if (sensores) {
+        sensores.textContent = w.nota;
+    }
+    // En el formulario se marcan los campos que este wearable no mide
+    ["temperatura", "frecuencia", "sistolica", "diastolica", "sueno"].forEach(function (id) {
+        const campo = document.getElementById(id);
+        if (!campo) return;
+        const mide = wearableMide(id);
+        campo.disabled = !mide;
+        campo.title = mide ? "" : "Este wearable no mide este indicador";
+        const caja = campo.closest(".campo");
+        if (caja) caja.classList.toggle("no-medido", !mide);
+    });
+}
+
+function cambiarWearable(paso) {
+    indiceWearable = (indiceWearable + paso + WEARABLES.length) % WEARABLES.length;
+    try { localStorage.setItem("run3rs-wearable", wearableActual().id); } catch (_) {}
+    pintarWearable();
+    relojModoAnterior = null;
+    if (ultimoReloj) procesar(); else actualizarReloj();
+}
+
 function leerMediciones() {
+    const v = id => (wearableMide(id) ? leerValor(id) : null);
     return {
-        temperatura: leerValor("temperatura"),
-        frecuencia: leerValor("frecuencia"),
-        sistolica: leerValor("sistolica"),
-        diastolica: leerValor("diastolica"),
-        glucosa: leerValor("glucosa"),
-        sueno: leerValor("sueno"),
-        animo: leerValor("animo"),
+        temperatura: v("temperatura"),
+        frecuencia: v("frecuencia"),
+        sistolica: v("sistolica"),
+        diastolica: v("diastolica"),
+        glucosa: v("glucosa"),
+        sueno: v("sueno"),
+        animo: v("animo"),
     };
 }
 
@@ -361,7 +417,7 @@ function dibujarGrafico(idCanvas, dias, series, opciones) {
 
     // Fondo
     ctx.clearRect(0, 0, ancho, alto);
-    ctx.fillStyle = "#1a1a2e";
+    ctx.fillStyle = "#111317";
     ctx.fillRect(0, 0, ancho, alto);
 
     // Chips (leyenda interactiva con el último valor)
@@ -402,7 +458,7 @@ function dibujarGrafico(idCanvas, dias, series, opciones) {
     // Cuadrícula y números del eje Y
     ctx.font = "11px Arial"; ctx.textAlign = "right";
     if (modoEje === "relativo") {
-        ctx.strokeStyle = "#2c2c48"; ctx.lineWidth = 1;
+        ctx.strokeStyle = "#1f2329"; ctx.lineWidth = 1;
         for (let k = 0; k <= 4; k++) {
             const y = margenSuperior + (k / 4) * areaAlto;
             ctx.beginPath(); ctx.moveTo(margenIzquierdo, y); ctx.lineTo(ancho - margenDerecho, y); ctx.stroke();
@@ -415,7 +471,7 @@ function dibujarGrafico(idCanvas, dias, series, opciones) {
         if (serieFoco && serieFoco.indicador === "animo") {
             for (let v = 1; v <= 5; v++) {
                 const y = yEje(v);
-                ctx.strokeStyle = "#2c2c48"; ctx.lineWidth = 1;
+                ctx.strokeStyle = "#1f2329"; ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(margenIzquierdo, y); ctx.lineTo(ancho - margenDerecho, y); ctx.stroke();
                 ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
                 ctx.fillText(CARAS[v - 1], margenIzquierdo - 6, y + 6);
@@ -427,7 +483,7 @@ function dibujarGrafico(idCanvas, dias, series, opciones) {
         const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
         for (let v = Math.ceil(ejeMin / paso) * paso; v <= ejeMax + 1e-9; v += paso) {
             const y = yEje(v);
-            ctx.strokeStyle = "#2c2c48"; ctx.lineWidth = 1;
+            ctx.strokeStyle = "#1f2329"; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(margenIzquierdo, y); ctx.lineTo(ancho - margenDerecho, y); ctx.stroke();
             ctx.fillStyle = "#aaa";
             const r = Math.round(v * 10) / 10;
@@ -526,7 +582,7 @@ function pintarChips(idCanvas, series, foco) {
         const b = document.createElement("button");
         b.type = "button";
         b.style.cssText = "display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;cursor:pointer;font-size:12px;color:#fff;background:" +
-            (activo ? "#2c2c48" : "transparent") + ";border:1.5px solid " + serie.color + ";";
+            (activo ? "#1d2a24" : "transparent") + ";border:1.5px solid " + serie.color + ";";
         b.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${serie.color}"></span>` +
             `${serie.clave}: <b>${ultimo === null ? "--" : (serie.indicador === "animo" ? caraDe(ultimo) : ultimo)}</b> ${serie.indicador === "animo" ? "" : (serie.unidad || "")}`;
         b.title = activo ? "Quitar enfoque" : "Ver con su escala y rango normal";
@@ -622,6 +678,81 @@ function peorEstado(resultados) {
     return peor;
 }
 
+// ===== Guía: cómo medir, qué es normal y cómo afecta el espacio =====
+const GUIA = {
+    temperatura: {
+        como: "La toma el sensor de temperatura del traje (Astroskin) de forma continua. Para que sea fiable, el traje debe ir ajustado al cuerpo.",
+        normal: "36.0 a 37.9 °C. Fiebre desde 38 °C.",
+        espacio: "En vuelo la temperatura en reposo sube cerca de 1 °C con las semanas y el sistema inmunitario se debilita, así que las infecciones son más probables.",
+    },
+    frecuencia: {
+        como: "La calcula el electrocardiograma del traje (Astroskin) latido a latido. Se evalúa en reposo: el ejercicio la sube de forma normal.",
+        normal: "50 a 99 latidos por minuto en reposo.",
+        espacio: "En microgravedad los fluidos suben hacia la cabeza y el corazón se adapta; la fiebre, el estrés y la deshidratación lo aceleran.",
+    },
+    sistolica: {
+        como: "La estima el traje (Astroskin) a partir del pulso y el electrocardiograma. Es el número alto de la presión. Si sale alterada, confírmala con un tensiómetro de brazo.",
+        normal: "90 a 129 mmHg.",
+        espacio: "El riesgo principal en el espacio es la presión BAJA al cambiar de gravedad: mareo y desmayo.",
+    },
+    diastolica: {
+        como: "Se obtiene junto con la sistólica. Es el número bajo de la presión.",
+        normal: "60 a 79 mmHg.",
+        espacio: "Igual que la sistólica: vigila sobre todo las caídas, más aún al llegar a la Luna o Marte.",
+    },
+    glucosa: {
+        como: "La envía un sensor de glucosa continuo, un parche en el brazo que mide cada pocos minutos. Si sale baja, confírmala con un glucómetro de dedo.",
+        normal: "70 a 180 mg/dl.",
+        espacio: "Las comidas irregulares y el esfuerzo de las actividades extravehiculares pueden bajarla. Por debajo de 70: 15 g de carbohidratos rápidos y vuelve a medir a los 15 minutos.",
+    },
+    sueno: {
+        como: "El traje (Astroskin) detecta cuándo duermes por tu respiración, pulso y movimiento, y suma las horas de las últimas 24 horas.",
+        normal: "7 horas o más.",
+        espacio: "Sin día ni noche, con ruido y turnos, el ritmo del cuerpo se desajusta y bajan la atención y los reflejos.",
+    },
+    animo: {
+        como: "Es lo único que no mide un sensor: elige la carita que mejor describe cómo te sientes hoy. Sé honesto, nadie te califica.",
+        normal: "🙂 o mejor (3 de 5 o más).",
+        espacio: "El aislamiento y el encierro afectan la salud mental. Detectarlo pronto permite pedir apoyo antes de que crezca.",
+    },
+};
+
+function guiaHtml(clave) {
+    const g = GUIA[clave];
+    if (!g) return "";
+    return `<details class="guia"><summary>ⓘ Cómo se mide y por qué importa</summary>
+        <p><strong>Cómo se mide:</strong> ${g.como}</p>
+        <p><strong>Normal:</strong> ${g.normal}</p>
+        <p><strong>En el espacio:</strong> ${g.espacio}</p>
+    </details>`;
+}
+
+// Ayuda en el formulario: un ⓘ junto a cada campo
+(function () {
+    const campos = { temperatura: "temperatura", frecuencia: "frecuencia", sistolica: "sistolica", diastolica: "diastolica", glucosa: "glucosa", sueno: "sueno" };
+    for (const id in campos) {
+        const label = document.querySelector(`label[for="${id}"]`);
+        if (!label) continue;
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "ayuda"; b.textContent = "ⓘ";
+        b.setAttribute("aria-label", "Cómo se mide " + NOMBRES[campos[id]].nombre.toLowerCase());
+        b.title = GUIA[campos[id]].como;
+        const p = document.createElement("p");
+        p.className = "ayuda-texto"; p.hidden = true;
+        p.textContent = GUIA[campos[id]].como + " Normal: " + GUIA[campos[id]].normal;
+        b.addEventListener("click", function () { p.hidden = !p.hidden; });
+        label.appendChild(b);
+        label.parentNode.insertBefore(p, label.nextSibling);
+    }
+    const caras = document.getElementById("animo-caras");
+    if (caras) {
+        const p = document.createElement("p");
+        p.className = "ayuda-texto";
+        p.textContent = GUIA.animo.como;
+        caras.parentNode.insertBefore(p, caras.nextSibling);
+    }
+})();
+
 function mostrarResultados(mediciones, resultados, general) {
     const contenedor = document.getElementById("resultado");
 
@@ -653,6 +784,7 @@ function mostrarResultados(mediciones, resultados, general) {
     <span>${valor}</span>
     <span>${TEXTO_ESTADO[r.estado]}${flecha}</span>
     ${mensajeHtml}
+    ${guiaHtml(clave)}
     </div>`;
     }
 
@@ -779,14 +911,102 @@ let relojTierra = null;          // null | { restante } | { recibida: true }
 let ultimoReloj = null;          // { mediciones, resultados }
 let relojModoAnterior = null;
 
+// Señales extra de cada wearable (oxígeno, respiración, variabilidad cardíaca, actividad).
+// En el prototipo se simulan a partir de las lecturas; son informativas y no cambian el semáforo.
+function extrasWearable(m, lista) {
+    if (!lista || !lista.length) return "";
+    const fc = Number(m.frecuencia) || 72;
+    const fiebre = Number(m.temperatura) >= 38;
+    const datos = {
+        spo2: [`${fiebre ? 96 : 98}%`, "Oxígeno"],
+        resp: [Math.round(Math.min(28, 12 + Math.max(0, fc - 70) / 6 + (fiebre ? 3 : 0))), "Resp/min"],
+        volumen: [`${(0.5 + Math.max(0, fc - 70) / 200).toFixed(1)} L`, "Vol. resp."],
+        vfc: [`${Math.max(18, Math.round(65 - Math.max(0, fc - 70) * 0.8 - (fiebre ? 10 : 0)))} ms`, "Var. cardíaca"],
+        actividad: [fc >= 110 ? "alta" : fc >= 90 ? "moderada" : "reposo", "Actividad"],
+    };
+    return `<div class="bio-extras" title="Valores simulados">${lista.map(k => `<span><b>${datos[k][0]}</b>${datos[k][1]}</span>`).join("")}</div>`;
+}
+
+// ===== Ilustraciones de los wearables sin pantalla =====
+const COLOR_SENSOR = { verde: "#34d399", amarillo: "#fbbf24", rojo: "#f87171", "sin-dato": "#475569" };
+
+function peorDe(resultados, claves) {
+    let peor = "sin-dato";
+    claves.forEach(k => { const e = resultados[k] && resultados[k].estado; if (e && PRIORIDAD[e] > PRIORIDAD[peor]) peor = e; });
+    return peor;
+}
+
+function svgWhoop(resultados, modo) {
+    const led = COLOR_SENSOR[{ normal: "verde", atencion: "amarillo", alerta: "rojo", tierra: "verde" }[modo] || "sin-dato"];
+    const pulso = modo === "alerta" ? '<animate attributeName="opacity" values="1;.25;1" dur="1s" repeatCount="indefinite"/>' : "";
+    return `<svg class="ilus ilus-whoop" viewBox="0 0 320 120" role="img" aria-label="Banda WHOOP, sin pantalla">
+        <defs>
+            <pattern id="tejido" width="6" height="6" patternUnits="userSpaceOnUse">
+                <rect width="6" height="6" fill="#171b24"/><path d="M0 3h6M3 0v6" stroke="#1f2430" stroke-width="1"/>
+            </pattern>
+            <linearGradient id="pod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a303d"/><stop offset="1" stop-color="#0f1218"/></linearGradient>
+            <filter id="brillo"><feGaussianBlur stdDeviation="3"/></filter>
+        </defs>
+        <rect x="6" y="38" width="308" height="44" rx="22" fill="url(#tejido)" stroke="#2c3244" stroke-width="2"/>
+        <rect x="18" y="56" width="20" height="8" rx="4" fill="#2c3244"/>
+        <rect x="112" y="24" width="96" height="72" rx="20" fill="url(#pod)" stroke="#3a4152" stroke-width="2"/>
+        <rect x="124" y="36" width="72" height="48" rx="13" fill="none" stroke="#252b38" stroke-width="1.5"/>
+        <circle cx="160" cy="60" r="9" fill="${led}" filter="url(#brillo)" opacity=".8">${pulso}</circle>
+        <circle cx="160" cy="60" r="4.5" fill="${led}">${pulso}</circle>
+    </svg>`;
+}
+
+function svgBioMonitor(resultados) {
+    const c = k => COLOR_SENSOR[peorDe(resultados, k)];
+    const s = (x, y, color, r) => `<circle cx="${x}" cy="${y}" r="${r * 2.4}" fill="${color}" opacity=".22"/><circle cx="${x}" cy="${y}" r="${r}" fill="${color}"/>`;
+    return `<svg class="ilus ilus-bio" viewBox="0 0 240 280" role="img" aria-label="Bio-Monitor: camiseta y diadema con sensores">
+        <defs>
+            <linearGradient id="tela" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2d3749"/><stop offset=".55" stop-color="#1c2331"/><stop offset="1" stop-color="#121722"/></linearGradient>
+            <linearGradient id="banda" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7dd3fc" stop-opacity=".2"/><stop offset=".5" stop-color="#7dd3fc" stop-opacity=".85"/><stop offset="1" stop-color="#7dd3fc" stop-opacity=".2"/></linearGradient>
+        </defs>
+        <!-- diadema (oxígeno en sangre) -->
+        <ellipse cx="120" cy="20" rx="46" ry="11" fill="none" stroke="#11151d" stroke-width="9"/>
+        <ellipse cx="120" cy="20" rx="46" ry="11" fill="none" stroke="#2c3446" stroke-width="1.5"/>
+        ${s(120, 31, "#7dd3fc", 3.2)}
+        <!-- camiseta sin mangas -->
+        <path d="M70 52 L94 52 Q120 96 146 52 L170 52 Q173 104 196 124 L193 262 Q120 274 47 262 L44 124 Q67 104 70 52 Z" fill="url(#tela)" stroke="#3a4558" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M94 52 Q120 96 146 52" fill="none" stroke="#11151d" stroke-width="6"/>
+        <path d="M58 118 Q66 112 70 100" fill="none" stroke="#11151d" stroke-width="5" stroke-linecap="round"/>
+        <path d="M182 118 Q174 112 170 100" fill="none" stroke="#11151d" stroke-width="5" stroke-linecap="round"/>
+        <!-- bandas de sensores: pecho (corazón, respiración) y abdomen (respiración) -->
+        <path d="M46 146 Q120 156 194 146" fill="none" stroke="url(#banda)" stroke-width="4"/>
+        <path d="M47 214 Q120 224 193 214" fill="none" stroke="url(#banda)" stroke-width="4"/>
+        <!-- sensores -->
+        ${s(100, 150, c(["frecuencia"]), 4.5)}
+        ${s(144, 150, c(["sistolica", "diastolica"]), 4)}
+        ${s(62, 182, c(["temperatura"]), 4)}
+        ${s(120, 219, "#7dd3fc", 3.5)}
+        ${s(170, 244, "#7dd3fc", 3.5)}
+    </svg>`;
+}
+
+const ETIQUETA_APP = { whoop: "Vista en la app del teléfono", biomonitor: "Vista en la tableta de a bordo" };
+const LEYENDA_ILUS = {
+    whoop: "Sin pantalla: la luz cambia de color y vibra. Sensores ópticos bajo el módulo; el broche permite el electrocardiograma.",
+    biomonitor: "Pecho: corazón · Bandas: presión y respiración · Costado: temperatura de la piel · Diadema: oxígeno · Cadera: actividad",
+};
+
+function envolverWearable(forma, pantalla, resultados, modo) {
+    if (forma !== "whoop" && forma !== "biomonitor") return pantalla;
+    const ilus = forma === "whoop" ? svgWhoop(resultados, modo) : svgBioMonitor(resultados);
+    return `<div class="ilus-caja">${ilus}<p class="ilus-leyenda">${LEYENDA_ILUS[forma]}</p></div>
+        <div class="app-vista"><div class="app-etq">${ETIQUETA_APP[forma]}</div>${pantalla}</div>`;
+}
+
 function actualizarReloj() {
     const cont = document.getElementById("reloj");
     if (!cont) return;
     if (!ultimoReloj) {
-        cont.className = "reloj reloj-normal";
-        cont.innerHTML = `<div class="reloj-pill">SIN DATOS</div>
+        const formaVacia = wearableActual().forma;
+        cont.className = "reloj reloj-normal forma-" + formaVacia;
+        cont.innerHTML = envolverWearable(formaVacia, `<div class="reloj-pill">SIN DATOS</div>
             <div class="reloj-titulo">Esperando mediciones</div>
-            <div class="reloj-texto">Pulsa "Iniciar datos simulados" o envía una medición.</div>`;
+            <div class="reloj-texto">Pulsa "Conectar wearable (simulado)".</div>`, {}, "apagado");
         return;
     }
     const { mediciones, resultados } = ultimoReloj;
@@ -812,7 +1032,7 @@ function actualizarReloj() {
     let titulo, texto, tarjeta = "";
 
     if (modo === "normal") {
-        titulo = "Todos tus indicadores están en rango";
+        titulo = "Todo lo que mide tu wearable está en rango";
         texto = "Sigue con tu rutina.";
     } else if (modo === "tierra") {
         titulo = "Respuesta de Tierra recibida";
@@ -828,15 +1048,17 @@ function actualizarReloj() {
         }
     }
 
-    cont.className = "reloj reloj-" + modo;
-    cont.innerHTML = `
+    const forma = wearableActual().forma;
+    cont.className = "reloj reloj-" + modo + " forma-" + forma;
+    cont.innerHTML = envolverWearable(forma, `
         <div class="reloj-cab"><span>Día ${dia}</span><span>${habitat.nombre}</span></div>
         <div class="reloj-pill">${pills[modo]}</div>
         <div class="reloj-etq">${modo === "tierra" ? "Respuesta simulada" : nombre}</div>
         <div class="reloj-valor">${modo === "tierra" ? "OK" : (valor === null ? "--" : (clave === "animo" ? caraDe(valor) : valor))}<small>${modo === "tierra" || clave === "animo" ? "" : NOMBRES[clave].unidad}</small></div>
         <div class="reloj-titulo">${titulo}</div>
         <div class="reloj-texto">${texto}</div>
-        ${tarjeta}`;
+        ${extrasWearable(mediciones, wearableActual().extras)}
+        ${tarjeta}`, resultados, modo);
 
     // Vibración del reloj solo al cambiar a atención/alerta
     if (modo !== relojModoAnterior && (modo === "atencion" || modo === "alerta") && navigator.vibrate) {
@@ -1265,12 +1487,41 @@ function procesar() {
     });
 }
 
+// ===== KPIs de la cabecera del panel =====
+function pintarKPIs(mediciones, resultados, general, entorno) {
+    const previa = HISTORIAL.length ? HISTORIAL[HISTORIAL.length - 1] : null;
+    const pon = function (id, valor, estado, pie) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = "col kpi" + (estado ? " estado-" + estado : "");
+        el.querySelector(".kpi-valor").textContent = valor;
+        el.querySelector(".kpi-pie").innerHTML = pie;
+    };
+    const cambio = function (clave, unidad, decimales) {
+        if (!previa || previa.mediciones[clave] === null || mediciones[clave] === null) return "vs. lectura anterior: —";
+        const d = mediciones[clave] - previa.mediciones[clave];
+        const clase = Math.abs(d) < 0.05 ? "igual" : d > 0 ? "sube" : "baja";
+        const signo = d > 0 ? "+" : "";
+        return `<span class="${clase}">${signo}${d.toFixed(decimales)} ${unidad}</span> · vs. lectura anterior`;
+    };
+    const alterados = Object.values(resultados).filter(r => r.estado === "amarillo" || r.estado === "rojo").length;
+    pon("kpi-general", TEXTO_ESTADO[general], general, alterados ? `${alterados} indicador${alterados > 1 ? "es" : ""} alterado${alterados > 1 ? "s" : ""}` : "Todo en rango");
+    pon("kpi-frecuencia", mediciones.frecuencia === null ? "sin dato" : `${mediciones.frecuencia} lpm`, resultados.frecuencia.estado, cambio("frecuencia", "lpm", 0));
+    pon("kpi-temperatura", mediciones.temperatura === null ? "sin dato" : `${mediciones.temperatura} °C`, resultados.temperatura.estado, cambio("temperatura", "°C", 1));
+    const pct = entorno.porcentajeLimite;
+    pon("kpi-radiacion", `${entorno.radiacionMSv.toFixed(1)} mSv`, pct >= 90 ? "rojo" : pct >= 50 ? "amarillo" : "verde", `${pct.toFixed(1)}% del límite NASA (600 mSv)`);
+    const sub = document.getElementById("saludo-sub");
+    if (sub) sub.textContent = `Día ${entorno.diaMision} de misión · ${entorno.nombreHabitat} · ${wearableActual().nombre}`;
+}
+
 function aplicarLectura(mediciones, resultados, general, entorno, fuente) {
     marcarFuente(fuente);
     mostrarResultados(mediciones, resultados, general);
     mostrarEntorno(entorno);
+    pintarKPIs(mediciones, resultados, general, entorno);
 
     registrarLectura(mediciones, resultados, entorno);
+    registrarEnJuego(mediciones, resultados);
     graficarHistorial();
     anunciarAnomalias(resultados);
     actualizarBase(mediciones, resultados);
@@ -1296,7 +1547,7 @@ const botonReloj = document.getElementById("btn-reloj");
 if (botonReloj) {
     const relojEl = document.getElementById("reloj");
     const panelEl = document.getElementById("reloj-panel");
-    let relojVisible = false;
+    let relojVisible = true;   // visible al cargar, encima de los gráficos
 
     function aplicarVisibilidadReloj() {
         relojEl.style.display = relojVisible ? "" : "none";
@@ -1309,7 +1560,7 @@ if (botonReloj) {
         relojVisible = !relojVisible;
         aplicarVisibilidadReloj();
     });
-    aplicarVisibilidadReloj();   // arranca oculto
+    aplicarVisibilidadReloj();
 }
 
 let temporizador = null;
@@ -1331,11 +1582,11 @@ botonVivo.addEventListener("click", function () {
     if (temporizador === null) {
         cicloEnVivo();
         temporizador = setInterval(cicloEnVivo, INTERVALO_MS);
-        botonVivo.textContent = "Detener datos simulados";
+        botonVivo.textContent = "Desconectar wearable";
     } else {
         clearInterval(temporizador);
         temporizador = null;
-        botonVivo.textContent = "Iniciar datos simulados";
+        botonVivo.textContent = "Conectar wearable (simulado)";
     }
 });
 
@@ -1351,7 +1602,39 @@ document.getElementById("btn-graficar").addEventListener("click", function () {
 // ===== 5. ASISTENTE DE INTELIGENCIA ARTIFICIAL =====
 
 // Respuesta con reglas locales, sin servidor (usa los mismos mensajes de la app)
-function respuestaLocalCliente() {
+// ¿Hay alguna lectura real? (procesada o al menos un valor en el formulario)
+const SIN_LECTURAS = "Todavía no tengo lecturas tuyas, así que no puedo decirte cómo estás. Conecta el wearable o procesa una lectura y te respondo.";
+function hayLecturas() {
+    if (HISTORIAL.length > 0) return true;
+    const m = leerMediciones();
+    return ["temperatura", "frecuencia", "sistolica", "diastolica", "glucosa", "sueno"].some(k => m[k] !== null);
+}
+
+// Charla básica: Nova contesta como una asistente aunque no haya lecturas ni internet
+function respuestaCharla(texto) {
+    const t = String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
+    if (!t) return null;
+    if (/^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey)( nova)?$/.test(t)) return "¡Hola! Aquí estoy. ¿En qué te ayudo?";
+    if (/\b(como estas|como te encuentras|que tal estas|como te va)\b/.test(t)) return "Estoy bien, gracias por preguntar, y lista para ayudarte. ¿Quieres que revise cómo estás tú?";
+    if (/\b(quien eres|que eres|como te llamas|cual es tu nombre)\b/.test(t)) return "Soy Nova, tu asistente de salud a bordo. Reviso tus lecturas, te aviso si algo se altera y te digo qué hacer.";
+    if (/\b(que puedes hacer|en que me ayudas|que sabes hacer|ayuda)\b/.test(t)) return "Puedo decirte cómo están tus indicadores, explicarte una alerta, decirte cuánta radiación llevas o cuánto falta para la respuesta de Tierra, y cambiar de wearable o iniciar la simulación.";
+    return null;
+}
+
+// ¿La pregunta es sobre su propio estado de salud? (entonces sí hacen falta lecturas)
+function preguntaSobreSalud(texto) {
+    const t = String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return /\b(como estoy|estoy bien|mi |mis |me siento|tengo|parametros|indicadores|signos|temperatura|frecuencia|presion|glucosa|sueno|animo|fiebre|pulso)\b/.test(t);
+}
+
+function respuestaLocalCliente(pregunta) {
+    const charla = respuestaCharla(pregunta);
+    if (charla) return charla;
+    if (!hayLecturas()) {
+        return preguntaSobreSalud(pregunta) || !pregunta
+            ? SIN_LECTURAS
+            : "Ahora mismo no tengo conexión con mi asistente en línea, así que solo puedo responder sobre tus lecturas y comandos básicos. " + SIN_LECTURAS;
+    }
     const mediciones = leerMediciones();
     const resultados = evaluarTodo(mediciones);
     const partes = [];
@@ -1367,7 +1650,25 @@ function respuestaLocalCliente() {
     return "Según tus mediciones: " + partes.join(" ");
 }
 
+// Memoria corta de la conversación (como Alexa: entiende "¿y ayer?", "¿por qué?")
+window.novaConversacion = [];
+function recordarTurno(pregunta, respuesta) {
+    window.novaConversacion.push({ astronauta: pregunta, nova: respuesta });
+    if (window.novaConversacion.length > 6) window.novaConversacion.shift();
+}
+
 async function consultarAsistente(pregunta, porVoz = false) {
+    if (typeof alertaAtendida === "function") alertaAtendida();
+    const charlaRapida = respuestaCharla(pregunta);
+    if (charlaRapida) {
+        const chat = document.getElementById("chat-ia");
+        [["Astronauta: ", pregunta], ["Nova: ", charlaRapida]].forEach(function (p) {
+            const el = document.createElement("p"); el.textContent = p[0] + p[1]; chat.appendChild(el);
+        });
+        if (porVoz) hablar(charlaRapida);
+        recordarTurno(pregunta, charlaRapida);
+        return charlaRapida;
+    }
 
     const chat = document.getElementById("chat-ia");
     const boton = document.getElementById("btn-asistente");
@@ -1391,6 +1692,9 @@ async function consultarAsistente(pregunta, porVoz = false) {
                 Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
             )
         })),
+        conversacion: (window.novaConversacion || []).slice(-6),
+        sinLecturas: !hayLecturas(),
+        lecturasProcesadas: HISTORIAL.length,
         entorno: {
             radiacionMSv: entorno.radiacionMSv,
             porcentajeLimite: entorno.porcentajeLimite,
@@ -1451,6 +1755,8 @@ async function consultarAsistente(pregunta, porVoz = false) {
 
         mensajeIA.textContent = "Nova: " + datos.respuesta;
         if (porVoz) hablar(resumenParaVoz(datos.respuesta));   // si preguntaste hablando, responde hablando
+        recordarTurno(pregunta, datos.respuesta);
+        return datos.respuesta;
 
     } catch (error) {
 
@@ -1458,9 +1764,11 @@ async function consultarAsistente(pregunta, porVoz = false) {
 
         // Respaldo: si el asistente en línea falla, se responde con las reglas locales
         // (así la conversación de voz sigue funcionando aunque el servidor falle).
-        const local = respuestaLocalCliente();
+        const local = respuestaLocalCliente(pregunta);
         mensajeIA.textContent = "Nova (sin conexión con el asistente en línea): " + local;
         if (porVoz) hablar(local);
+        recordarTurno(pregunta, local);
+        return local;
 
     } finally {
 
@@ -1489,7 +1797,12 @@ document.getElementById("formulario-asistente")
         await consultarAsistente(pregunta);
     });
 
-// ===== Nova: asistente por voz con palabra de activación ("Oye Nova") =====
+// ===== Nova: asistente por voz al estilo Alexa =====
+// - Se activa diciendo "Nova" (o "Oye Nova") en cualquier momento, sin pulsar nada.
+// - Suena un tono al oírte, igual que Alexa, y escucha tu pregunta.
+// - Tras responder sigue escuchando unos segundos para que sigas la conversación sin repetir su nombre.
+// - "Nova, para" / "Nova, silencio" la interrumpe aunque esté hablando.
+// - Comandos rápidos que se resuelven al instante (hora, día, wearable, simulación, Tierra...).
 
 const NOMBRE_ASISTENTE = "Nova";
 
@@ -1515,121 +1828,221 @@ const NOMBRE_ASISTENTE = "Nova";
         return;
     }
 
-    // Palabra de activación: "oye/hey/hola/ok + Nova" (el reconocedor a veces escribe "noba" o "nueva")
     const normalizar = t => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
         .replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ").trim();
-    const PATRON = /\b(?:oye|oiga|hey|hola|ok|okey)\s+(?:nova|noba|nueva|novas|nobas)\b\s*(.*)$/;
+    // "Nova ..." al inicio de la frase. "nueva" solo cuenta si va después de "oye/hey/ok"
+    // "Nova" en cualquier parte de la frase (el reconocedor a veces escribe noba, novas, lova...)
+    const ACTIVACION = /(?:^|\s)(?:nova|noba|novas|nobas)\b\s*(.*)$/;
+    const ACTIVACION_NUEVA = /(?:^|\s)(?:oye|hey|hola|ok|okey)\s+(?:nueva|nuevas)\b\s*(.*)$/;
+    const PARAR = /^(?:para|parar|silencio|callate|calla|detente|cancela|cancelar|basta|stop|ya)\b/;
+    const SEGUIMIENTO_MS = 7000;   // tiempo para seguir hablando sin decir "Nova"
+    const ESCUCHA_MS = 8000;       // tiempo para hacer la pregunta tras decir "Nova"
 
     let reco = null;
     let activo = false;
-    let pausado = false;      // true mientras Nova habla o piensa (para no oírse a sí misma)
-    let estado = "apagado";   // apagado | esperando | escuchando | pensando
+    let estado = "apagado";        // apagado | esperando | escuchando | pensando | hablando
     let temporizador = null;
+    let ultimaRespuesta = "";
+    let microListo = false;
+    // Línea que muestra lo que el micrófono está oyendo (para saber si de verdad te escucha)
+    const oido = document.createElement("p");
+    oido.id = "nova-oido";
+    oido.setAttribute("aria-live", "polite");
+    estadoEl.parentNode.insertAdjacentElement("afterend", oido);
 
     function ponerEstado(nuevo, mensaje) {
         estado = nuevo;
-        window.novaEstado = nuevo;
+        window.novaEstado = nuevo === "hablando" ? "esperando" : nuevo;
         const textos = {
             apagado: "🎙 Activar a Nova",
-            esperando: "🔴 Nova te escucha · pulsa para apagar",
+            esperando: "🔴 Nova está atenta · pulsa para apagar",
             escuchando: "🟢 Te escucho...",
             pensando: "⏳ Pensando...",
+            hablando: "🔊 Nova habla · di «Nova, para» para cortarla",
         };
         boton.textContent = textos[nuevo];
         estadoEl.textContent = mensaje || "";
     }
 
-    function arrancar() {
-        if (!activo || pausado || !reco) return;
-        try { reco.start(); } catch (_) { /* ya estaba iniciado */ }
-    }
-    function pausar() {
-        pausado = true;
-        try { reco.stop(); } catch (_) {}
-    }
-    function reanudar() {
-        pausado = false;
-        arrancar();
+    // Tono corto al activarse (como Alexa). Usa el mismo audio que la voz de Nova.
+    function tono(subida) {
+        const ctx = asegurarAudio();
+        if (!ctx) return;
+        const t0 = ctx.currentTime;
+        [subida ? 660 : 880, subida ? 990 : 590].forEach(function (f, i) {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = "sine"; o.frequency.value = f;
+            g.gain.setValueAtTime(0.0001, t0 + i * 0.09);
+            g.gain.exponentialRampToValueAtTime(0.18, t0 + i * 0.09 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.09 + 0.16);
+            o.connect(g); g.connect(ctx.destination);
+            o.start(t0 + i * 0.09); o.stop(t0 + i * 0.09 + 0.18);
+        });
     }
 
-    // Espera a que Nova termine de hablar y entonces ejecuta la función
-    function alTerminarDeHablar(fn) {
-        let intentos = 0;
+    function arrancar() {
+        if (!activo || !reco) return;
+        try { reco.start(); } catch (_) { /* ya estaba escuchando */ }
+    }
+
+    let topeVozMs = 15000;
+    function esperarFinVoz(fn) {
+        const inicio = Date.now();
         setTimeout(function revisar() {
-            const hablando = novaEstaHablando();
-            if (hablando && ++intentos < 200) { setTimeout(revisar, 300); return; }
-            setTimeout(fn, 400);
-        }, 500);
+            if (novaEstaHablando() && Date.now() - inicio < topeVozMs) { setTimeout(revisar, 250); return; }
+            if (novaEstaHablando()) detenerVoz();    // el navegador se quedó "hablando": se libera
+            setTimeout(fn, 250);
+        }, 300);
+    }
+
+    function aEspera() {
+        clearTimeout(temporizador);
+        if (!activo) return;
+        ponerEstado("esperando", "Di «" + NOMBRE_ASISTENTE + "» y tu pregunta");
+        vaciarAlertasPendientes();
+    }
+
+    function abrirEscucha(ms, mensaje) {
+        clearTimeout(temporizador);
+        ponerEstado("escuchando", mensaje);
+        temporizador = setTimeout(function () { if (estado === "escuchando") aEspera(); }, ms);
+    }
+
+    // Tras hablar: modo seguimiento (puedes seguir sin decir "Nova")
+    function trasHablar(seguimiento) {
+        esperarFinVoz(function () {
+            if (!activo) return;
+            if (vaciarAlertasPendientes()) { esperarFinVoz(() => trasHablar(seguimiento)); return; }
+            if (!seguimiento) { aEspera(); return; }
+            abrirEscucha(SEGUIMIENTO_MS, "Puedes seguir hablando, o di «" + NOMBRE_ASISTENTE + "» más tarde");
+        });
+    }
+
+    function decir(texto, seguimiento = true) {
+        if (seguimiento) ultimaRespuesta = texto;
+        topeVozMs = Math.min(40000, 6000 + texto.length * 90);
+        ponerEstado("hablando");
+        hablar(texto);
+        trasHablar(seguimiento);
     }
 
     function apagar(mensaje) {
         activo = false;
-        pausado = false;
         clearTimeout(temporizador);
         try { reco.stop(); } catch (_) {}
         ponerEstado("apagado", mensaje);
     }
 
-    async function enviar(pregunta) {
-        clearTimeout(temporizador);
-        pausar();
-        ponerEstado("pensando", "");
-        await consultarAsistente(pregunta, true);
-        alTerminarDeHablar(volverAEsperar);
+    // ----- Comandos rápidos (sin internet, respuesta inmediata) -----
+    function comandoRapido(t) {
+        const charla = respuestaCharla(t);
+        if (charla) return charla;
+        if (/\b(gracias|muchas gracias)\b/.test(t) && t.split(" ").length <= 4) return "De nada. Aquí estoy.";
+        if (/\b(repite|repitelo|otra vez|que dijiste)\b/.test(t)) return ultimaRespuesta || "Aún no he dicho nada.";
+        if (/\bque hora es\b|\bla hora\b/.test(t)) {
+            const d = new Date();
+            return `Son las ${numeroEnPalabras(d.getHours())} y ${numeroEnPalabras(d.getMinutes())}.`;
+        }
+        if (/\b(que dia|dia de (la )?mision)\b/.test(t)) return `Estás en el día ${numeroEnPalabras(diaActual())} de la misión.`;
+        if (/\b(cuanto falta|cuando responde|respuesta de tierra)\b/.test(t)) {
+            if (relojTierra && relojTierra.restante !== undefined) return `La respuesta de Tierra llega en ${tiempoHablado(relojTierra.restante)}.`;
+            if (relojTierra && relojTierra.recibida) return "La respuesta de Tierra ya llegó. Sigue el protocolo.";
+            return "No hay ningún aviso a Tierra en curso.";
+        }
+        const sim = /\b(simulacion|wearable|datos|lecturas|monitoreo)\b/.test(t);
+        if (sim && /\b(inicia|empieza|conecta|activa|enciende|arranca)\b/.test(t)) {
+            if (!temporizador_vivo_activo()) document.getElementById("btn-vivo").click();
+            return `Listo, wearable conectado. Recibirás una lectura cada ${numeroEnPalabras(INTERVALO_MS / 1000)} segundos.`;
+        }
+        if (sim && /\b(deten|para|desconecta|apaga|termina)\b/.test(t)) {
+            if (temporizador_vivo_activo()) document.getElementById("btn-vivo").click();
+            return "Listo, wearable desconectado.";
+        }
+        if (/\b(bio ?monitor|camiseta)\b/.test(t)) return elegirWearable("biomonitor");
+        if (/\b(whoop|banda)\b/.test(t)) return elegirWearable("whoop");
+        if (/\breloj\b/.test(t) && /\b(usa|cambia|pon|elige)\b/.test(t)) return elegirWearable("reloj");
+        if (/\b(cambia|siguiente|otro)\b.*\b(wearable|dispositivo)\b/.test(t)) {
+            cambiarWearable(1);
+            return "Cambié a " + wearableActual().nombre + ".";
+        }
+        if (/\b(radiacion)\b/.test(t) && HISTORIAL.length) {
+            const e = HISTORIAL[HISTORIAL.length - 1].entorno;
+            if (e) return `Llevas ${textoNumeroHablado(e.radiacionMSv)} milisievert, el ${numeroEnPalabras(Math.round(e.porcentajeLimite))} por ciento del límite de la NASA.`;
+        }
+        return null;
     }
 
-    // Tras hablar: si hubo alertas en espera, se dicen ahora (sin cortar) y luego vuelve a escuchar
-    function volverAEsperar() {
-        if (!activo) return;
-        if (vaciarAlertasPendientes()) {
-            alTerminarDeHablar(function () {
-                if (!activo) return;
-                ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
-                reanudar();
+    function temporizador_vivo_activo() {
+        const b = document.getElementById("btn-vivo");
+        return b && /Desconectar|Detener/.test(b.textContent);
+    }
+
+    function elegirWearable(id) {
+        const i = WEARABLES.findIndex(w => w.id === id);
+        if (i < 0) return null;
+        cambiarWearable(i - indiceWearable);
+        return "Ahora simulo con " + wearableActual().nombre + ".";
+    }
+
+    async function atender(pregunta) {
+        clearTimeout(temporizador);
+        const rapido = comandoRapido(pregunta);
+        if (rapido) {
+            tono(true);
+            const chat = document.getElementById("chat-ia");
+            [["Astronauta: ", pregunta], ["Nova: ", rapido]].forEach(function (p) {
+                const el = document.createElement("p");
+                el.textContent = p[0] + p[1];
+                chat.appendChild(el);
             });
+            recordarTurno(pregunta, rapido);
+            decir(rapido);
             return;
         }
-        ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
-        reanudar();
+        ponerEstado("pensando", "");
+        const respuesta = await consultarAsistente(pregunta, false);
+        if (!activo) return;
+        decir(resumenParaVoz(respuesta || "No pude responder ahora. Inténtalo de nuevo."));
     }
 
-    // Las alertas esperan mientras Nova conversa
+    // Las alertas automáticas esperan mientras Nova conversa
     window.novaOcupada = function () {
-        return activo && (pausado || estado === "escuchando" || estado === "pensando");
+        return activo && (estado === "escuchando" || estado === "pensando" || estado === "hablando");
     };
 
     function procesar(texto) {
-        if (pausado || estado === "pensando") return;
-        if (novaEstaHablando()) return;   // ignora su propia voz
         const t = normalizar(texto);
         if (!t) return;
 
-        if (estado === "escuchando") {
-            enviar(t);
+        // Interrumpir: "Nova, para" (funciona aunque esté hablando o pensando)
+        const conNombre = t.match(ACTIVACION);
+        if (conNombre && PARAR.test(conNombre[1]) && conNombre[1].split(" ").length <= 3) {
+            detenerVoz();
+            tono(false);
+            aEspera();
             return;
         }
-        if (estado !== "esperando") return;
 
-        const m = t.match(PATRON);
+        // Mientras habla o piensa, ignora lo que oye (es su propia voz)
+        if (estado === "hablando" || estado === "pensando" || novaEstaHablando()) return;
+
+        if (estado === "escuchando") {
+            if (PARAR.test(t) && t.split(" ").length <= 2) { tono(false); aEspera(); return; }
+            const m = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
+            const pregunta = m ? m[1].trim() : t;
+            if (pregunta) atender(pregunta);
+            return;
+        }
+
+        if (estado !== "esperando") return;
+        const m = t.match(ACTIVACION) || t.match(ACTIVACION_NUEVA);
         if (!m) return;
         const resto = m[1].trim();
-
-        if (resto.split(" ").filter(Boolean).length >= 2) {
-            enviar(resto);                       // "Oye Nova, me duele la cabeza..." en una sola frase
+        if (resto.split(" ").filter(Boolean).length >= 2 || comandoRapido(resto)) {
+            atender(resto);                                   // "Nova, ¿cómo estoy?" en una sola frase
         } else {
-            pausar();                            // solo dijo "Oye Nova": ella responde y escucha
-            hablar("Dime.");
-            alTerminarDeHablar(function () {
-                if (!activo) return;
-                ponerEstado("escuchando", "Haz tu pregunta");
-                reanudar();
-                temporizador = setTimeout(function () {
-                    if (estado === "escuchando") {
-                        ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
-                        vaciarAlertasPendientes();
-                    }
-                }, 9000);
-            });
+            tono(true);                                       // solo dijo "Nova": tono y escucha
+            abrirEscucha(ESCUCHA_MS, "Te escucho");
         }
     }
 
@@ -1637,12 +2050,21 @@ const NOMBRE_ASISTENTE = "Nova";
         reco = new Reconocimiento();
         reco.lang = "es-ES";
         reco.continuous = true;
-        reco.interimResults = false;
+        reco.interimResults = true;
         reco.onresult = function (e) {
+            let parcial = "";
             for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) procesar(e.results[i][0].transcript);
+                const t = e.results[i][0].transcript;
+                if (e.results[i].isFinal) {
+                    oido.textContent = "Oí: «" + t.trim() + "»";
+                    procesar(t);
+                } else {
+                    parcial += t;
+                }
             }
+            if (parcial && estado !== "hablando") oido.textContent = "Oyendo: «" + parcial.trim() + "…»";
         };
+        reco.onaudiostart = function () { microListo = true; };
         reco.onerror = function (e) {
             if (e.error === "not-allowed" || e.error === "service-not-allowed") {
                 apagar("Permite el micrófono en el navegador (candado junto a la dirección).");
@@ -1652,20 +2074,21 @@ const NOMBRE_ASISTENTE = "Nova";
                 estadoEl.textContent = "Sin conexión con el servicio de voz. Reintentando...";
             }
         };
-        reco.onend = function () {
-            // Chrome corta el reconocimiento tras un rato de silencio: se reinicia solo
-            if (activo && !pausado) setTimeout(arrancar, 300);
-        };
+        // Chrome corta el reconocimiento tras un rato: se reinicia solo para seguir atenta
+        reco.onend = function () { if (activo) setTimeout(arrancar, 250); };
     }
 
     boton.addEventListener("click", function () {
         if (activo) { apagar("Nova apagada."); return; }
         activo = true;
+        asegurarAudio();
         crear();
-        ponerEstado("esperando", "Di «Oye " + NOMBRE_ASISTENTE + "»");
-        pausar();
-        hablar("Hola, soy " + NOMBRE_ASISTENTE + ". Di: oye " + NOMBRE_ASISTENTE + ", y tu pregunta.");
-        alTerminarDeHablar(function () { if (activo) reanudar(); });
+        arrancar();
+        tono(true);
+        decir("Hola, soy " + NOMBRE_ASISTENTE + ". Cuando me necesites, di mi nombre.", false);
+        setTimeout(function () {
+            if (activo && !microListo) estadoEl.textContent = "No recibo audio del micrófono. Revisa el permiso (candado junto a la dirección) y que el micrófono correcto esté seleccionado.";
+        }, 5000);
     });
 })();
 
@@ -1773,4 +2196,151 @@ const NOMBRE_ASISTENTE = "Nova";
         chat.hidden = !chat.hidden;
         boton.textContent = chat.hidden ? "Ver transcripción" : "Ocultar transcripción";
     });
+})();
+
+// ===== Misión salud: gamificación =====
+// Premia HÁBITOS (medirse, hidratarse, entrenar, dormir, registrar el ánimo, responder a alertas),
+// nunca que los valores salgan normales: así nadie tiene motivo para ocultar un síntoma.
+const TAREAS = [
+    { id: "medir",     texto: "Llevar puesto el wearable y sincronizar", puntos: 20, auto: true },
+    { id: "animo",     texto: "Registrar tu estado de ánimo",    puntos: 10, auto: true },
+    { id: "agua",      texto: "Beber al menos 2 litros de agua", puntos: 10 },
+    { id: "ejercicio", texto: "Ejercicio de resistencia (huesos y músculo)", puntos: 25 },
+    { id: "dormir",    texto: "Dormir 7 horas o más",            puntos: 15, auto: true },
+    { id: "alerta",    texto: "Responder a una alerta (consultar a Nova)", puntos: 20, auto: true },
+];
+const LOGROS = [
+    { id: "primera",   texto: "Primera sincronización",               cumple: j => j.mediciones >= 1 },
+    { id: "racha3",    texto: "3 días seguidos con el wearable",      cumple: j => j.racha >= 3 },
+    { id: "racha7",    texto: "7 días seguidos con el wearable",      cumple: j => j.racha >= 7 },
+    { id: "dia",       texto: "Día completo (todas las tareas)", cumple: j => j.diasCompletos >= 1 },
+    { id: "alerta",    texto: "Respondiste a una alerta",        cumple: j => j.alertasAtendidas >= 1 },
+];
+
+const juego = (function cargar() {
+    const base = { puntos: 0, racha: 0, ultimoDia: null, dia: null, hechas: {}, mediciones: 0, diasCompletos: 0, alertasAtendidas: 0, logros: {}, alertaPendiente: false };
+    try { return Object.assign(base, JSON.parse(localStorage.getItem("run3rs-juego") || "{}")); } catch (_) { return base; }
+})();
+
+function guardarJuego() {
+    try { localStorage.setItem("run3rs-juego", JSON.stringify(juego)); } catch (_) {}
+}
+
+function diaActual() {
+    return Number(document.getElementById("dia-mision").value) || 1;
+}
+
+function prepararDia() {
+    const dia = diaActual();
+    if (juego.dia === dia) return;
+    juego.dia = dia;
+    juego.hechas = {};
+}
+
+function completarTarea(id) {
+    prepararDia();
+    if (juego.hechas[id]) return;
+    const t = TAREAS.find(x => x.id === id);
+    if (!t) return;
+    juego.hechas[id] = true;
+    juego.puntos += t.puntos;
+    if (TAREAS.every(x => juego.hechas[x.id])) juego.diasCompletos++;
+    revisarLogros();
+    guardarJuego();
+    pintarJuego();
+}
+
+function revisarLogros() {
+    LOGROS.forEach(function (l) {
+        if (!juego.logros[l.id] && l.cumple(juego)) {
+            juego.logros[l.id] = true;
+            const aviso = document.getElementById("juego-aviso");
+            if (aviso) {
+                aviso.textContent = "🏅 Logro desbloqueado: " + l.texto;
+                aviso.hidden = false;
+                clearTimeout(revisarLogros.t);
+                revisarLogros.t = setTimeout(() => { aviso.hidden = true; }, 5000);
+            }
+        }
+    });
+}
+
+function registrarEnJuego(mediciones, resultados) {
+    prepararDia();
+    actualizarDiaNova();
+    const dia = diaActual();
+    juego.mediciones++;
+    if (juego.ultimoDia !== dia) {
+        juego.racha = (juego.ultimoDia !== null && dia === juego.ultimoDia + 1) ? juego.racha + 1 : 1;
+        juego.ultimoDia = dia;
+    }
+    completarTarea("medir");
+    if (mediciones.animo !== null && mediciones.animo !== undefined) completarTarea("animo");
+    if (Number(mediciones.sueno) >= 7) completarTarea("dormir");
+    const hayAlerta = Object.values(resultados).some(r => r.estado === "amarillo" || r.estado === "rojo");
+    if (hayAlerta) juego.alertaPendiente = true;
+    revisarLogros();
+    guardarJuego();
+    pintarJuego();
+}
+
+function alertaAtendida() {
+    if (!juego.alertaPendiente) return;
+    juego.alertaPendiente = false;
+    juego.alertasAtendidas++;
+    completarTarea("alerta");
+}
+
+function pintarJuego() {
+    const caja = document.getElementById("panel-juego");
+    if (!caja) return;
+    prepararDia();
+    const hechas = TAREAS.filter(t => juego.hechas[t.id]).length;
+    caja.innerHTML = `<div class="tarjeta-entorno juego">
+        <div class="juego-cabecera">
+            <h3>Misión salud</h3>
+            <div class="juego-dia"><span>Día de misión</span><b>${juego.dia}</b></div>
+        </div>
+        <p class="juego-progreso">${hechas} de ${TAREAS.length} tareas de hoy</p>
+        <ul class="juego-tareas">
+            ${TAREAS.map(t => `<li class="${juego.hechas[t.id] ? "hecha" : ""}">
+                ${t.auto
+                    ? `<span class="marca">${juego.hechas[t.id] ? "✔" : "○"}</span>`
+                    : `<button type="button" data-tarea="${t.id}" ${juego.hechas[t.id] ? "disabled" : ""}>${juego.hechas[t.id] ? "✔" : "Hecho"}</button>`}
+                <span>${t.texto}</span></li>`).join("")}
+        </ul>
+        <div class="juego-logros">
+            ${LOGROS.map(l => `<span class="${juego.logros[l.id] ? "ganado" : ""}" title="${l.texto}">🏅 ${l.texto}</span>`).join("")}
+        </div>
+        <p id="juego-aviso" hidden></p>
+    </div>`;
+    caja.querySelectorAll("button[data-tarea]").forEach(b => b.addEventListener("click", () => completarTarea(b.dataset.tarea)));
+}
+
+pintarJuego();
+
+// Día de misión visible en el panel de Nova
+function actualizarDiaNova() {
+    const el = document.getElementById("nova-dia");
+    if (el) el.textContent = diaActual();
+}
+(function () {
+    const campo = document.getElementById("dia-mision");
+    if (campo) ["input", "change"].forEach(ev => campo.addEventListener(ev, actualizarDiaNova));
+    actualizarDiaNova();
+})();
+
+// Flechas para cambiar de wearable
+(function () {
+    const prev = document.getElementById("wear-prev");
+    const next = document.getElementById("wear-next");
+    if (prev) prev.addEventListener("click", () => cambiarWearable(-1));
+    if (next) next.addEventListener("click", () => cambiarWearable(1));
+    document.addEventListener("keydown", function (e) {
+        const panel = document.getElementById("reloj-panel");
+        if (!panel || panel.hidden || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+        if (e.key === "ArrowLeft") cambiarWearable(-1);
+        if (e.key === "ArrowRight") cambiarWearable(1);
+    });
+    pintarWearable();
 })();

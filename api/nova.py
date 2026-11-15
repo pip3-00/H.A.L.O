@@ -39,7 +39,8 @@ CONOCIMIENTO = """
 """
 
 REGLAS = """
-1. Tu respuesta se LEE EN VOZ ALTA: tono sereno y cercano, español simple, sin listas, viñetas, símbolos ni formato. Escribe los números como se dicen (por ejemplo "treinta y seis coma ocho grados").
+1. Hablas como una asistente de voz tipo Alexa: tu respuesta se LEE EN VOZ ALTA, con tono cálido, natural y directo, español simple, sin listas, viñetas, símbolos ni formato. No saludes en cada respuesta ni repitas la pregunta: ve al grano. Escribe los números como se dicen (por ejemplo "treinta y seis coma ocho grados").
+0. Si "sinLecturas" es verdadero o "lecturasProcesadas" es 0 y no hay valores en las mediciones, el astronauta TODAVÍA NO SE HA MEDIDO: nunca digas que sus parámetros están bien o normales. Dile que aún no tienes lecturas y que conecte el wearable o procese una lectura. Sí puedes responder preguntas generales que no dependan de sus datos. Si te pregunta cómo estás TÚ ("¿cómo estás?"), es charla: responde con naturalidad y amabilidad, como una asistente de voz, sin hablar de lecturas.
 2. Largo según la pregunta: para "¿cómo estoy?" o un síntoma, 2 o 3 frases. Si pide DATOS (un valor, un promedio, una tendencia, cuánta radiación lleva, qué día es, una comparación, una explicación), dalos completos y exactos en hasta 5 frases.
 3. Cuando pide datos, usa SOLO los datos de la sección DATOS DEL ASTRONAUTA o del CONOCIMIENTO. Puedes calcular con ellos (promedios, mínimos, máximos, diferencias, cuánto falta para un límite). Nunca inventes un valor; si no está, dilo y pide que lo mida.
 4. Si no pide datos y todo está en rango, di "Tus parámetros están normales" sin recitar cifras. Si algo está alterado: qué pasa, qué hacer ahora y cuándo avisar a Tierra.
@@ -206,7 +207,11 @@ def respuesta_local(m, pregunta="", e=None):
 
 
 def construir_prompt(pregunta, m, e):
-    entorno = {k: v for k, v in e.items() if k != "historial"}
+    entorno = {k: v for k, v in e.items() if k not in ("historial", "conversacion")}
+    conversacion = "\n".join(
+        f"Astronauta: {t.get('astronauta', '')}\nNova: {t.get('nova', '')}"
+        for t in (e.get("conversacion") or [])[-6:] if isinstance(t, dict)
+    ) or "(es el inicio de la conversación)"
     j = lambda x: json.dumps(x, ensure_ascii=False)
     return f"""Te llamas Nova y eres la asistente de salud a bordo de astronautas en misiones de larga duración.
 
@@ -223,6 +228,9 @@ Estado por indicador según la app: {j(e.get("resultados") or {})}
 Entorno (hábitat, día de misión, radiación acumulada, pérdida ósea estimada): {j(entorno)}
 Historial de lecturas previas (de la más antigua a la más reciente): {j(e.get("historial") or [])}
 Usa el historial para decir si algo sube, baja o se mantiene. Si hay menos de 3 lecturas, no inventes tendencias.
+
+CONVERSACIÓN RECIENTE (úsala para entender preguntas cortas como "¿y ayer?", "¿por qué?" o "¿qué hago?"; no la repitas):
+{conversacion}
 
 Astronauta: {pregunta or "¿Cómo estoy?"}
 Nova:"""
@@ -244,6 +252,9 @@ def responder(cuerpo):
         "estadoGeneral": ctx.get("estadoGeneral"),
         "resultados": ctx.get("resultados"),
         "historial": ctx.get("historial") or [],
+        "conversacion": ctx.get("conversacion") or [],
+        "sinLecturas": bool(ctx.get("sinLecturas")),
+        "lecturasProcesadas": ctx.get("lecturasProcesadas"),
     }
     if isinstance(ctx.get("entorno"), dict):
         e.update(ctx["entorno"])

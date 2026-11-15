@@ -1,98 +1,100 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="vendor/bootstrap.min.css">
     <link rel="stylesheet" href="style.css">
     <title>run3rs · Monitor de salud</title>
 </head>
 
 <body>
-    <header>
-        <div class="marca"><span class="marca-punto"></span><h1>run3rs</h1><span class="marca-sub">Monitor de salud del astronauta</span></div>
-        <span id="fuente-logica" data-fuente="espera">Lógica: en espera</span>
-        <span class="marca-nota">Prototipo · datos simulados · no es un dispositivo médico</span>
-    </header>
+<div class="app d-flex">
 
-    <main>
-        <section id="seccion-formulario">
-            <h2>Registro de Mediciones</h2>
-            <div class="campo">
-                <label for="dia-mision">Día de misión</label>
-                <input type="number" id="dia-mision" min="1" value="1" autocomplete="off">
-            </div>
-            <div class="campo">
-                <label for="habitat">Ubicacion de la mision</label>
-                <select id="habitat">
-                    <option value="iss">Estacion Espacial</option>
-                    <option value="transito">Nave en Transito a Marte</option>
-                    <option value="luna">Base Lunar</option>
-                    <option value="marte" selected>Base en Marte</option>
-                </select>
-            </div>
-            <div class="campo"><label for="escenario">Escenario simulado</label><select id="escenario">
-                <option value="normal">Normal</option>
-                <option value="fiebre">Fiebre</option>
-                <option value="hipotension">Hipotensión</option>
-                <option value="hipoglucemia">Hipoglucemia</option>
-            </select></div>
-            <button type="button" id="btn-vivo">Iniciar datos simulados</button>
-            <form id="form-salud">
-                <div class="campo">
-                    <label for="temperatura">Temperatura (°C)</label>
-                    <input type="number" id="temperatura" step="0.1">
-                </div>
-                <div class="campo">
-                    <label for="frecuencia"> Frecuencia cardíaca (lpm)</label>
-                    <input type="number" id="frecuencia" step="1">
-                </div>
-                <div class="campo">
-                    <label for="sistolica">Presión sistólica (mmHg)</label>
-                    <input type="number" id="sistolica" step="1">
-                </div>
-                <div class="campo">
-                    <label for="diastolica">Presión diastólica (mmHg)</label>
-                    <input type="number" id="diastolica" step="1">
-                </div>
-                <div class="campo">
-                    <label for="glucosa">Glucosa (mg/dl)</label>
-                    <input type="number" id="glucosa" step="1">
-                </div>
-                <div class="campo">
-                    <label for="sueno">Horas de sueño(ultimas 24 horas)</label>
-                    <input type="number" id="sueno" step="0.5">
-                </div>
-                <div class="campo">
-                    <label>Estado de ánimo</label>
-                    <input type="hidden" id="animo">
-                    <div id="animo-caras" role="radiogroup" aria-label="Estado de ánimo"></div>
-                </div>
-            <button type="submit" id="btn-evaluar">Evaluar mediciones</button>
-            </form>
-        </section>
+    <!-- Barra lateral -->
+    <aside class="lateral d-none d-lg-flex flex-column">
+        <div class="logo d-flex align-items-center gap-2"><span class="logo-marca">✚</span><span>run3rs</span></div>
+        <nav class="nav flex-column mt-4" aria-label="Secciones">
+            <span class="nav-titulo">General</span>
+            <a class="nav-link activo" href="#inicio">Panel</a>
+            <a class="nav-link" href="#seccion-asistente">Nova</a>
+            <a class="nav-link" href="#graficos">Gráficos</a>
+            <a class="nav-link" href="#tarjeta-wearable">Wearables</a>
+            <a class="nav-link" href="#seccion-formulario">Lecturas</a>
+            <a class="nav-link" href="#resultado">Indicadores</a>
+        </nav>
+        <div class="lateral-nota mt-auto">
+            <strong>Prototipo</strong>
+            <span>Datos simulados. No es un dispositivo médico.</span>
+        </div>
+    </aside>
 
-        <section id="seccion-resultados">
-            <h2>Estado de Salud</h2>
-            <button type="button" id="btn-reloj">Ver simulación</button>
-            <div id="reloj-panel" hidden>
-                <div id="reloj"></div>
+    <!-- Contenido -->
+    <main id="inicio" class="contenido flex-grow-1">
+        <header class="barra-superior d-flex align-items-center justify-content-between gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-3">
+                <span class="migas"><span class="text-body-secondary">‹ ›</span> Panel de salud</span>
+                <span id="fuente-logica" data-fuente="espera">Lógica: en espera</span>
             </div>
-            <div id="aviso-tierra"></div>
-            <div id="resultado"></div>
-            <div id="panel-entorno"></div>
-            <button type="button" id="btn-graficar">Graficar datos recolectados</button>
-            <h3>Corazón, presión y glucosa</h3>
-            <canvas id="grafica-vitales" width="700" height="300"></canvas>
-            <h3>Temperatura y bienestar</h3>
-            <canvas id="grafica-bienestar" width="700" height="250"></canvas>
-            
-<section id="seccion-asistente">
-    <h3>Nova · asistente de a bordo</h3>
+            <div class="d-flex align-items-center gap-2">
+                <span class="marca-nota d-none d-md-inline">Prototipo · datos simulados</span>
+                <button type="button" id="btn-vivo" class="btn btn-verde btn-sm">Conectar wearable (simulado)</button>
+            </div>
+        </header>
+
+        <div class="saludo">
+            <h1>Hola, astronauta</h1>
+            <p id="saludo-sub">Resumen de tu salud en la misión</p>
+        </div>
+
+        <!-- KPIs -->
+        <div class="tarjeta-dash kpis mb-3">
+            <div class="row g-0 row-cols-2 row-cols-md-4">
+                <div class="col kpi" id="kpi-general"><span class="kpi-icono">◉</span><span class="kpi-etq">Estado general</span><b class="kpi-valor">—</b><span class="kpi-pie">Sin lecturas</span></div>
+                <div class="col kpi" id="kpi-frecuencia"><span class="kpi-icono">♥</span><span class="kpi-etq">Frecuencia cardíaca</span><b class="kpi-valor">—</b><span class="kpi-pie">—</span></div>
+                <div class="col kpi" id="kpi-temperatura"><span class="kpi-icono">🌡</span><span class="kpi-etq">Temperatura</span><b class="kpi-valor">—</b><span class="kpi-pie">—</span></div>
+                <div class="col kpi" id="kpi-radiacion"><span class="kpi-icono">☢</span><span class="kpi-etq">Radiación acumulada</span><b class="kpi-valor">—</b><span class="kpi-pie">—</span></div>
+            </div>
+        </div>
+
+        <div id="aviso-tierra"></div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-xl-8">
+                <div class="tarjeta-dash mb-3" id="tarjeta-wearable">
+                    <div class="cab-dash"><div><h2>Wearable</h2><p>Elige el dispositivo que simula las lecturas</p></div>
+                        <button type="button" id="btn-reloj" class="btn btn-contorno btn-sm">Ver simulación</button></div>
+                    <div id="reloj-panel" hidden>
+                <div class="wearable-carrusel">
+                    <button type="button" id="wear-prev" class="wear-flecha" aria-label="Wearable anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <div class="wearable-centro">
+                        <p id="wear-nombre" aria-live="polite"></p>
+                        <div id="reloj"></div>
+                        <p id="wear-sensores"></p>
+                    </div>
+                    <button type="button" id="wear-next" class="wear-flecha" aria-label="Wearable siguiente"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
+            </div>
+                </div>
+                <div class="tarjeta-dash" id="graficos">
+                    <div class="cab-dash"><div><h2>Corazón, presión y glucosa</h2><p>Últimas 30 lecturas · toca un indicador para ver su escala y rango normal</p></div></div>
+                    <canvas id="grafica-vitales" width="700" height="300"></canvas>
+                    <h2 class="mt-3">Temperatura y bienestar</h2>
+                    <canvas id="grafica-bienestar" width="700" height="230"></canvas>
+                    <button type="button" id="btn-graficar">Graficar datos recolectados</button>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <section id="seccion-asistente" class="tarjeta-dash">
+    <div class="nova-cabecera">
+        <h3>Nova · asistente de a bordo</h3>
+        <div class="juego-dia"><span>Día de misión</span><b id="nova-dia">1</b></div>
+    </div>
 
     <div class="nova-escenario">
         <canvas id="nova-orbe" aria-hidden="true"></canvas>
-        <p id="nova-subtitulo" aria-live="polite">Pulsa «Activar a Nova» y di «Oye Nova».</p>
+        <p id="nova-subtitulo" aria-live="polite">Pulsa «Activar a Nova» y luego di «Nova» cuando la necesites.</p>
     </div>
 
     <div id="controles-voz">
@@ -123,9 +125,83 @@
 
     <div id="chat-ia" hidden></div>
 </section>
+            </div>
+        </div>
 
-        </section>
+        <div class="row g-3 mb-3">
+            <div class="col-xl-4">
+                <section id="seccion-formulario" class="tarjeta-dash h-100">
+                    <div class="cab-dash"><div><h2>Lecturas del wearable</h2><p class="nota-wearable">En la misión llegan solas del wearable y del sensor de glucosa; aquí se simulan y puedes editarlas.</p></div></div>
+                    <div class="campo">
+                <label for="dia-mision">Día de misión</label>
+                <input type="number" id="dia-mision" min="1" value="1" autocomplete="off">
+            </div>
+            <div class="campo">
+                <label for="habitat">Ubicacion de la mision</label>
+                <select id="habitat">
+                    <option value="iss">Estacion Espacial</option>
+                    <option value="transito">Nave en Transito a Marte</option>
+                    <option value="luna">Base Lunar</option>
+                    <option value="marte" selected>Base en Marte</option>
+                </select>
+            </div>
+            <div class="campo"><label for="escenario">Escenario simulado</label><select id="escenario">
+                <option value="normal">Normal</option>
+                <option value="fiebre">Fiebre</option>
+                <option value="hipotension">Hipotensión</option>
+                <option value="hipoglucemia">Hipoglucemia</option>
+            </select></div>
+                        <form id="form-salud">
+                <div class="campo">
+                    <label for="temperatura">Temperatura (°C)</label>
+                    <input type="number" id="temperatura" step="0.1">
+                </div>
+                <div class="campo">
+                    <label for="frecuencia"> Frecuencia cardíaca (lpm)</label>
+                    <input type="number" id="frecuencia" step="1">
+                </div>
+                <div class="campo">
+                    <label for="sistolica">Presión sistólica (mmHg)</label>
+                    <input type="number" id="sistolica" step="1">
+                </div>
+                <div class="campo">
+                    <label for="diastolica">Presión diastólica (mmHg)</label>
+                    <input type="number" id="diastolica" step="1">
+                </div>
+                <div class="campo">
+                    <label for="glucosa">Glucosa (mg/dl)</label>
+                    <input type="number" id="glucosa" step="1">
+                </div>
+                <div class="campo">
+                    <label for="sueno">Horas de sueño(ultimas 24 horas)</label>
+                    <input type="number" id="sueno" step="0.5">
+                </div>
+                <div class="campo">
+                    <label>Estado de ánimo</label>
+                    <input type="hidden" id="animo">
+                    <div id="animo-caras" role="radiogroup" aria-label="Estado de ánimo"></div>
+                </div>
+            <button type="submit" id="btn-evaluar">Procesar lectura</button>
+            </form>
+                </section>
+            </div>
+            <div class="col-xl-8 d-flex flex-column gap-3">
+                <div class="row g-3">
+                    <div class="col-md-6"><div id="panel-entorno" class="h-100"></div></div>
+                    <div class="col-md-6"><div id="panel-base" class="h-100"></div></div>
+                </div>
+                <section id="seccion-resultados" class="tarjeta-dash flex-grow-1">
+                    <div class="cab-dash"><div><h2>Indicadores</h2><p>Semáforo por indicador según la última lectura</p></div></div>
+                    <details class="guia guia-intro"><summary>ⓘ ¿Por qué se vigilan estos indicadores?</summary>
+                <p>En una misión larga, la radiación, la microgravedad, el aislamiento y un ambiente cerrado cambian tu cuerpo poco a poco: inmunidad, huesos, corazón, sueño y ánimo. Lejos de la Tierra, tú eres quien primero puede notar esos cambios.</p>
+                <p>Llevar el wearable cada día crea tu propia referencia. Así un cambio pequeño se ve a tiempo, antes de volverse una emergencia. Los colores te dicen qué hacer: <b class="c-verde">verde</b> sigue tu rutina, <b class="c-amarillo">amarillo</b> actúa y vuelve a medir, <b class="c-rojo">rojo</b> avisa a un compañero; si es grave o se repite, se avisa a Tierra.</p>
+            </details>
+                    <div id="resultado"></div>
+                </section>
+            </div>
+        </div>
     </main>
+</div>
     <script src="app.js"></script>
 </body>
 
