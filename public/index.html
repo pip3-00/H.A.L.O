@@ -62,8 +62,9 @@
                     <input type="number" id="sueno" step="0.5">
                 </div>
                 <div class="campo">
-                    <label for="animo">Estado de Animo (1 a 5)</label>
-                    <input type="number" id="animo" step="1">
+                    <label>Estado de ánimo</label>
+                    <input type="hidden" id="animo">
+                    <div id="animo-caras" role="radiogroup" aria-label="Estado de ánimo"></div>
                 </div>
             </form>
         </section>
@@ -84,19 +85,23 @@
             <canvas id="grafica-bienestar" width="700" height="250"></canvas>
             
 <section id="seccion-asistente">
-    <h3>Asistente de a bordo - run3rs</h3>
+    <h3>Nova · asistente de a bordo</h3>
 
     <p>
-        Consulta tus mediciones y recibe orientación
-        del asistente inteligente.
+        Activa a Nova y habla con ella: di <b>«Oye Nova»</b> y tu pregunta.
+        Responde en voz alta usando tus mediciones.
     </p>
 
-    <form id="formulario-asistente">
-        <div class="campo">
-            <label for="pregunta-asistente">
-                ¿Qué deseas consultar?
-            </label>
+    <div id="controles-voz" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;">
+        <button type="button" id="btn-microfono">🎙 Activar a Nova</button>
+        <span id="estado-microfono" aria-live="polite" style="font-size:13px;color:#9aa3b2;"></span>
+    </div>
 
+    <button type="button" id="btn-escribir" style="font-size:12px;opacity:.75;margin-bottom:8px;">⌨ Escribir en vez de hablar</button>
+
+    <form id="formulario-asistente" hidden>
+        <div class="campo">
+            <label for="pregunta-asistente">¿Qué deseas consultar?</label>
             <textarea
                 id="pregunta-asistente"
                 maxlength="1000"
@@ -105,12 +110,8 @@
             ></textarea>
         </div>
 
-        <label>
-            <input type="checkbox" id="voz-activa" checked> Respuesta por voz
-        </label>
-
         <button type="submit" id="btn-asistente">
-            Consultar asistente de a bordo
+            Consultar a Nova
         </button>
     </form>
 
