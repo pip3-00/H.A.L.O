@@ -13,7 +13,7 @@ const INDICADORES = {
 const PRIORIDAD = { "sin-dato": 0, verde: 1, amarillo: 2, rojo: 3 };
 const HISTORIAL = [];
 const UMBRAL_TENDENCIA = 3;
-const INTERVALO_MS = 4000;
+const INTERVALO_MS = 10000;
 
 const NOMBRES = {
     temperatura: { nombre: "temperatura", unidad: "°C" },
@@ -301,8 +301,8 @@ function dibujarGrafico(idCanvas, dias, series) {
     ctx.textAlign = "center";
 
 
-       dias.forEach((dia, i) => {          // <-- aquí pegas tu bloque
-        if (i > 0 && dia === dias[i - 1]) return;
+    dias.forEach((dia, i) => {
+        if (i > 0 && dia === dias[i - 1]) return;   // solo cuando cambia el día
         const x = posicionX(i);
         ctx.fillText("D" + dia, x, alto - margenInferior + 20);
         if (i > 0) {
@@ -313,14 +313,6 @@ function dibujarGrafico(idCanvas, dias, series) {
             ctx.stroke();
         }
     });
-
-        const pasoEtiqueta = Math.ceil(dias.length / 10);
-    dias.forEach((dia, i) => {
-        if (i % pasoEtiqueta !== 0) return;
-        const x = posicionX(i);
-        ctx.fillText("#" + dia, x, alto - margenInferior + 20);
-    });
-
 
     // Dibujar series
     series.forEach(serie => {
@@ -416,7 +408,7 @@ function dibujarGrafico(idCanvas, dias, series) {
 function graficarHistorial() {
     const lecturas = HISTORIAL.slice(-30);
     if (lecturas.length < 1) return;
-    const dias = lecturas.map ( h => h.diaMision);
+    const dias = lecturas.map(h => h.diaMision);
     const col = clave => lecturas.map(h => h.mediciones[clave]);
 
     dibujarGrafico("grafica-vitales", dias, [
@@ -672,8 +664,8 @@ async function consultarAsistente(pregunta) {
         resultados: resultados,
         estadoGeneral: TEXTO_ESTADO[general],
         historial: HISTORIAL.slice(-10).map(h =>({
-            dia:h.diaMision,
-            mediciones: h.meddiciones,
+            dia: h.diaMision,
+            mediciones: h.mediciones,
             estados: Object.fromEntries(
                 Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
             )
@@ -696,12 +688,12 @@ async function consultarAsistente(pregunta) {
     chat.appendChild(mensajeIA);
 
     boton.disabled = true;
-    boton.textContent = "Consultando Claude...";
+    boton.textContent = "Consultando asistente...";
 
     try {
 
         const respuesta = await fetch(
-            "./api/asistente",
+            "/api/asistente",
             {
                 method: "POST",
                 headers: {
