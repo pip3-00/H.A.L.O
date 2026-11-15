@@ -663,6 +663,13 @@ async function consultarAsistente(pregunta) {
         mediciones: mediciones,
         resultados: resultados,
         estadoGeneral: TEXTO_ESTADO[general],
+        historial: HISTORIAL.slice(-10).map(h =>({
+            dia:h.diaMision,
+            mediciones: h.meddiciones,
+            estados: Object.fromEntries(
+                Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
+            )
+        })),
         entorno: {
             radiacionMSv: entorno.radiacionMSv,
             porcentajeLimite: entorno.porcentajeLimite,
