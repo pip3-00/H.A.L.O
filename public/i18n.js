@@ -301,6 +301,9 @@ const EN_TEXTOS = {
     // --- Misión salud ---
     "🏅 Logro desbloqueado: ": "🏅 Achievement unlocked: ",
     "Misión salud": "Health mission",
+    "Logros": "Achievements",
+    "Desbloqueado": "Unlocked",
+    "Por desbloquear": "Locked",
     "Inicio": "Home",
     "Estado del sistema": "System status",
     "Nominal": "Nominal",

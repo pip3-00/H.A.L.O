@@ -2647,12 +2647,23 @@ function pintarJuego() {
                     : `<button type="button" class="btn btn-contorno btn-sm" data-tarea="${t.id}" ${juego.hechas[t.id] ? "disabled" : ""}>${juego.hechas[t.id] ? "✔" : tr("Hecho")}</button>`}
                 <span>${t.texto}</span><em>+${t.puntos}</em></li>`).join("")}
         </ul>
-        <p class="juego-subtitulo">${tr("Logros ({n} de {total})", { n: ganados, total: LOGROS.length })}</p>
-        <div class="juego-logros">
-            ${LOGROS.map(l => `<span class="${juego.logros[l.id] ? "ganado" : ""}" title="${l.texto}">🏅 ${l.texto}</span>`).join("")}
-        </div>
         <p id="juego-aviso" hidden></p>
     </div>`;
+    // Logros en su propia tarjeta, a la derecha de Misión salud
+    const cajaLogros = document.getElementById("panel-logros");
+    if (cajaLogros) {
+        cajaLogros.innerHTML = `<div class="tarjeta-entorno juego">
+            <div class="juego-cabecera"><h3>${tr("Logros")}</h3><span class="juego-nivel">${ganados} / ${LOGROS.length}</span></div>
+            <div class="juego-barra"><i style="width:${Math.round(ganados / LOGROS.length * 100)}%"></i></div>
+            <ul class="logros-lista">
+                ${LOGROS.map(l => {
+                    const ok = !!juego.logros[l.id];
+                    return `<li class="${ok ? "ganado" : ""}"><span class="logro-medalla" aria-hidden="true">${ok ? "🏅" : "🔒"}</span>
+                        <span class="logro-texto"><b>${l.texto}</b><small>${ok ? tr("Desbloqueado") : tr("Por desbloquear")}</small></span></li>`;
+                }).join("")}
+            </ul>
+        </div>`;
+    }
     caja.querySelectorAll("button[data-tarea]").forEach(b => b.addEventListener("click", () => completarTarea(b.dataset.tarea)));
     if (ultimoLogro && Date.now() < ultimoLogro.hasta) {
         const aviso = document.getElementById("juego-aviso");
@@ -3089,7 +3100,8 @@ function pintarInicio() {
     const conectado = temporizador !== null;
 
     $("bv-planeta").dataset.habitat = habitat;
-    $("bv-destino").textContent = hab.nombre || "";
+    $("bv-escena").dataset.habitat = habitat;
+    if ($("bv-habitat").value !== habitat) $("bv-habitat").value = habitat;
     $("bv-retraso").textContent = hab.retrasoSeg >= 60
         ? tr("Mensajes a Tierra: {n} min", { n: Math.round(hab.retrasoSeg / 60) })
         : tr("Mensajes a Tierra: {n} s", { n: hab.retrasoSeg });
@@ -3161,6 +3173,28 @@ function pintarInicio() {
         const mic = document.getElementById("btn-microfono");
         if (mic && !mic.hidden && /activar|start|turn on/i.test(mic.textContent)) mic.click();
     });
+    // Selector de destino en el Inicio: cambia el hábitat de la misión (el mismo de la pantalla Gráficos)
+    const selDestino = document.getElementById("bv-habitat");
+    const selHabitat = document.getElementById("habitat");
+    function cambiarDestino(valor) {
+        if (!valor || selHabitat.value === valor) return;
+        selHabitat.value = valor;
+        selHabitat.dispatchEvent(new Event("change", { bubbles: true }));
+        const escena = document.getElementById("bv-escena");
+        escena.classList.remove("cambiando");
+        void escena.offsetWidth;            // reinicia la animación de cambio
+        escena.classList.add("cambiando");
+    }
+    if (selDestino) {
+        selDestino.addEventListener("change", () => cambiarDestino(selDestino.value));
+        const opciones = Array.from(selDestino.options).map(o => o.value);
+        const mover = paso => {
+            const i = opciones.indexOf(selHabitat.value);
+            cambiarDestino(opciones[(i + paso + opciones.length) % opciones.length]);
+        };
+        document.getElementById("bv-dest-prev").addEventListener("click", () => mover(-1));
+        document.getElementById("bv-dest-next").addEventListener("click", () => mover(1));
+    }
     ["habitat", "dia-mision"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("change", pintarInicio);
@@ -3224,8 +3258,32 @@ function pintarInicio() {
         }
         ctx.globalAlpha = 1;
 
-        // Satélite sobre la órbita (elipse inclinada); pasa por detrás del planeta en la mitad superior
-        if (satelite) {
+        // Compañero (luna, Tierra, estación o nave) recorriendo la órbita: pasa por detrás del planeta
+        // en la mitad superior, se ve un poco más pequeño al alejarse y la nave apunta hacia donde avanza
+        const compa = document.querySelector(".bv-escena .bv-luna");
+        if (compa && compa.offsetParent !== null) {
+            const escena = compa.parentElement;
+            const w = escena.clientWidth, h = escena.clientHeight;
+            const a = w * 0.46, b = h * 0.23, giro = -18 * Math.PI / 180;
+            const ang = MOVIMIENTO_REDUCIDO ? 2.4 : 2.4 + s * 0.22;
+            const ox = a * Math.cos(ang), oy = b * Math.sin(ang);
+            const x = w / 2 + ox * Math.cos(giro) - oy * Math.sin(giro);
+            const y = h / 2 + ox * Math.sin(giro) + oy * Math.cos(giro);
+            const detras = Math.sin(ang) < 0;
+            const escala = 0.82 + 0.18 * Math.sin(ang);                  // 0.64 lejos · 1 cerca
+            let rumbo = 0;
+            const hab = escena.dataset.habitat;
+            if (hab === "transito" || hab === "iss") {
+                const dx = -a * Math.sin(ang), dy = b * Math.cos(ang);    // tangente de la elipse
+                rumbo = Math.atan2(dx * Math.sin(giro) + dy * Math.cos(giro), dx * Math.cos(giro) - dy * Math.sin(giro));
+                if (hab === "iss") rumbo = rumbo * 0.15;                  // la estación casi no gira
+            }
+            compa.classList.add("en-orbita");
+            compa.classList.toggle("detras", detras);
+            compa.style.transform = `translate(${x - compa.offsetWidth / 2}px, ${y - compa.offsetHeight / 2}px) scale(${escala.toFixed(3)}) rotate(${rumbo.toFixed(3)}rad)`;
+        }
+        if (satelite) satelite.style.display = "none";
+        if (false) {
             const escena = satelite.parentElement;
             const w = escena.clientWidth, h = escena.clientHeight;
             const a = w * 0.56, b = h * 0.23, giro = -18 * Math.PI / 180;
@@ -3303,4 +3361,189 @@ function pintarInicio() {
         ctx.globalAlpha = 1;
     }
     requestAnimationFrame(dibujar);
+})();
+
+
+// ===== Planetas del Inicio dibujados en tiempo real =====
+// Cada cuerpo (Tierra, Marte, Luna) tiene una textura generada con ruido fractal; la esfera gira,
+// tiene iluminación con terminador suave y, en la Tierra, nubes que se mueven y atmósfera azul.
+(function () {
+    const lienzoP = document.getElementById("bv-planeta-lienzo");
+    const lienzoL = document.getElementById("bv-luna-lienzo");
+    const escena = document.getElementById("bv-escena");
+    if (!lienzoP || !lienzoP.getContext || !escena) return;
+    const quieto = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+    // --- Ruido 3D (valor) con semilla; se muestrea sobre un cilindro para que la textura no tenga costura ---
+    function crearRuido(semilla) {
+        const p = new Uint8Array(512);
+        let x = semilla * 9301 + 49297;
+        const azar = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+        const perm = Array.from({ length: 256 }, (_, i) => i).sort(() => azar() - 0.5);
+        for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+        const val = new Float32Array(256).map(() => azar());
+        const suave = t => t * t * (3 - 2 * t);
+        const h = (i, j, k) => val[p[p[p[i & 255] + (j & 255)] + (k & 255)]];
+        function ruido(x, y, z) {
+            const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+            const xf = suave(x - xi), yf = suave(y - yi), zf = suave(z - zi);
+            const l = (a, b, t) => a + (b - a) * t;
+            return l(l(l(h(xi, yi, zi), h(xi + 1, yi, zi), xf), l(h(xi, yi + 1, zi), h(xi + 1, yi + 1, zi), xf), yf),
+                     l(l(h(xi, yi, zi + 1), h(xi + 1, yi, zi + 1), xf), l(h(xi, yi + 1, zi + 1), h(xi + 1, yi + 1, zi + 1), xf), yf), zf);
+        }
+        return function fbm(x, y, z, oct) {
+            let s = 0, a = 0.5, f = 1, n = 0;
+            for (let o = 0; o < (oct || 5); o++) { s += a * ruido(x * f, y * f, z * f); n += a; a *= 0.5; f *= 2.03; }
+            return s / n;
+        };
+    }
+    const mezcla = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    const suaveEntre = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+    const TW = 768, TH = 384;
+    const texturas = {};
+    function textura(tipo) {
+        if (texturas[tipo]) return texturas[tipo];
+        const fbm = crearRuido({ tierra: 7, marte: 3, luna: 11, fobos: 5 }[tipo] || 1);
+        const fbm2 = crearRuido(({ tierra: 7, marte: 3, luna: 11, fobos: 5 }[tipo] || 1) + 20);
+        const color = new Uint8ClampedArray(TW * TH * 3);
+        const nubes = tipo === "tierra" ? new Uint8ClampedArray(TW * TH) : null;
+        // cráteres (Marte, Luna, Fobos)
+        const crateres = [];
+        if (tipo !== "tierra") {
+            const n = tipo === "marte" ? 18 : 55;
+            let sx = 17;
+            const az = () => ((sx = (sx * 9301 + 49297) % 233280) / 233280);
+            for (let i = 0; i < n; i++) crateres.push({ u: az(), v: 0.12 + az() * 0.76, r: (tipo === "marte" ? 0.012 : 0.01) + az() * (tipo === "marte" ? 0.03 : 0.045) });
+        }
+        for (let j = 0; j < TH; j++) {
+            const lat = (0.5 - j / TH) * Math.PI;
+            const cy = Math.sin(lat), cr = Math.cos(lat);
+            for (let i = 0; i < TW; i++) {
+                const lon = (i / TW) * Math.PI * 2;
+                const px = Math.cos(lon) * cr, pz = Math.sin(lon) * cr, py = cy;
+                let c;
+                if (tipo === "tierra") {
+                    const h = fbm(px * 1.8 + 3, py * 1.8, pz * 1.8, 6);
+                    const polo = Math.abs(lat) / (Math.PI / 2);
+                    // tierra y mar se mezclan en una franja estrecha: costas suaves, sin escalones
+                    const alt = suaveEntre(0.53, 0.75, h);
+                    const seco = fbm2(px * 3, py * 3, pz * 3, 3);
+                    let tierra = mezcla(mezcla([46, 104, 52], [120, 142, 70], seco), [150, 128, 92], alt);
+                    if (Math.abs(lat) < 0.45) tierra = mezcla(tierra, [196, 170, 112], suaveEntre(0.55, 0.62, seco) * 0.6);   // desiertos
+                    const mar = mezcla([8, 30, 78], [30, 92, 168], suaveEntre(0.3, 0.53, h));
+                    c = mezcla(mar, tierra, suaveEntre(0.518, 0.542, h));
+                    if (polo > 0.82 + (fbm2(px * 4, py * 4, pz * 4, 2) - 0.5) * 0.12) c = [236, 242, 248];
+                    const n = fbm2(px * 2.6 + 9, py * 4.2, pz * 2.6, 5);
+                    nubes[j * TW + i] = Math.round(255 * suaveEntre(0.5, 0.72, n) * 0.9);
+                } else if (tipo === "marte") {
+                    const h = fbm(px * 2.2, py * 2.2, pz * 2.2, 6);
+                    const d = fbm2(px * 1.3, py * 1.3, pz * 1.3, 4);
+                    c = mezcla([120, 42, 20], [206, 104, 58], suaveEntre(0.25, 0.75, h));
+                    c = mezcla(c, [238, 160, 110], suaveEntre(0.62, 0.85, h) * 0.6);
+                    c = mezcla(c, [92, 36, 22], suaveEntre(0.55, 0.7, d) * 0.55);      // regiones oscuras
+                    const polo = Math.abs(lat) / (Math.PI / 2);
+                    if (polo > 0.9) c = mezcla(c, [244, 236, 228], suaveEntre(0.9, 0.95, polo));
+                } else {
+                    const h = fbm(px * 2.4, py * 2.4, pz * 2.4, 6);
+                    const mar = fbm2(px * 1.4, py * 1.4, pz * 1.4, 4);
+                    const base = tipo === "fobos" ? [[70, 62, 56], [150, 138, 126]] : [[88, 89, 94], [206, 207, 211]];
+                    c = mezcla(base[0], base[1], suaveEntre(0.25, 0.8, h));
+                    if (tipo === "luna") c = mezcla(c, [72, 74, 80], suaveEntre(0.55, 0.68, mar) * 0.7);   // mares lunares
+                }
+                if (crateres.length) {
+                    const u = i / TW, v = j / TH;
+                    for (const k of crateres) {
+                        let du = Math.abs(u - k.u); du = Math.min(du, 1 - du) * cr * 2;
+                        const dd = Math.hypot(du, v - k.v) / k.r;
+                        if (dd < 1.35) {
+                            // fondo más oscuro con borde suave y un anillo claro alrededor (sin bordes dentados)
+                            const fondo = (1 - suaveEntre(0.55, 1.0, dd)) * 0.3;
+                            const anillo = suaveEntre(0.85, 1.05, dd) * (1 - suaveEntre(1.05, 1.35, dd)) * 0.16;
+                            const f = 1 - fondo + anillo;
+                            c = [Math.min(255, c[0] * f), Math.min(255, c[1] * f), Math.min(255, c[2] * f)];
+                        }
+                    }
+                }
+                const o = (j * TW + i) * 3;
+                color[o] = c[0]; color[o + 1] = c[1]; color[o + 2] = c[2];
+            }
+        }
+        return (texturas[tipo] = { color, nubes });
+    }
+
+    // --- Esfera: tablas por píxel (longitud, latitud, luz) calculadas una vez; cada cuadro solo desplaza la textura ---
+    function crearCuerpo(lienzo) {
+        const ctx = lienzo.getContext("2d");
+        let tam = 0, img = null, tabla = null;
+        const L = (function () { const v = [-0.55, -0.42, 0.72], m = Math.hypot(v[0], v[1], v[2]); return v.map(x => x / m); })();
+        function ajustar() {
+            const css = lienzo.clientWidth || 300;
+            const t = Math.max(32, Math.round(css * Math.min(window.devicePixelRatio || 1, 1.25)));
+            if (t === tam) return;
+            tam = t; lienzo.width = lienzo.height = tam;
+            img = ctx.createImageData(tam, tam);
+            tabla = [];
+            const r = tam / 2 - 1;
+            for (let y = 0; y < tam; y++) for (let x = 0; x < tam; x++) {
+                const nx = (x + 0.5 - tam / 2) / r, ny = (y + 0.5 - tam / 2) / r, d2 = nx * nx + ny * ny;
+                if (d2 > 1) continue;
+                const nz = Math.sqrt(1 - d2);
+                const lon = Math.atan2(nx, nz), lat = Math.asin(-ny);
+                const dif = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+                const luz = 0.04 + 0.96 * Math.pow(dif, 0.85);
+                const borde = Math.min(1, (1 - Math.sqrt(1 - d2)) * 1.0);    // 0 en el centro, 1 en el borde
+                const alfa = Math.min(1, (1 - Math.sqrt(d2)) * r * 0.9);      // antialias del contorno
+                tabla.push(y * tam + x, lon / (Math.PI * 2) + 0.5, 0.5 - lat / Math.PI, luz, borde, alfa);
+            }
+        }
+        function dibujar(tipo, giro) {
+            ajustar();
+            const tex = textura(tipo);
+            const d = img.data; d.fill(0);
+            const atm = tipo === "tierra" ? [110, 175, 255] : tipo === "marte" ? [255, 170, 120] : null;
+            for (let k = 0; k < tabla.length; k += 6) {
+                const idx = tabla[k], luz = tabla[k + 3], borde = tabla[k + 4];
+                let u = tabla[k + 1] + giro; u -= Math.floor(u);
+                const ti = Math.min(TH - 1, (tabla[k + 2] * TH) | 0) * TW + ((u * TW) | 0);
+                let r = tex.color[ti * 3], g = tex.color[ti * 3 + 1], b = tex.color[ti * 3 + 2];
+                if (tex.nubes) {
+                    let un = tabla[k + 1] + giro * 1.35 + 0.3; un -= Math.floor(un);
+                    const a = tex.nubes[Math.min(TH - 1, (tabla[k + 2] * TH) | 0) * TW + ((un * TW) | 0)] / 255;
+                    r += (245 - r) * a; g += (248 - g) * a; b += (252 - b) * a;
+                }
+                r *= luz; g *= luz; b *= luz;
+                if (atm) {                      // atmósfera: el borde iluminado se tiñe
+                    const t = Math.pow(borde, 3) * (0.35 + luz * 0.65) * (tipo === "tierra" ? 0.9 : 0.35);
+                    r += (atm[0] - r) * t; g += (atm[1] - g) * t; b += (atm[2] - b) * t;
+                }
+                const o = idx * 4;
+                d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255 * tabla[k + 5];
+            }
+            ctx.putImageData(img, 0, 0);
+        }
+        return { dibujar };
+    }
+
+    const principal = crearCuerpo(lienzoP);
+    const compa = lienzoL && lienzoL.getContext ? crearCuerpo(lienzoL) : null;
+    const PLANETA = { iss: "tierra", luna: "luna", marte: "marte", transito: "marte" };
+    const COMPANERO = { marte: "fobos", luna: "tierra" };      // en iss y tránsito el compañero es la estación o la nave (SVG)
+    escena.classList.add("planetas-vivos");
+
+    let giro = 0.15, ultimo = 0, acumulado = 0;
+    function cuadro(t) {
+        requestAnimationFrame(cuadro);
+        if (escena.offsetParent === null || document.hidden) { ultimo = t; return; }
+        const dt = Math.min(100, t - (ultimo || t)); ultimo = t;
+        acumulado += dt;
+        if (acumulado < 33) return;              // ~30 cuadros por segundo es suficiente
+        if (!quieto) giro += acumulado * 0.000012;
+        acumulado = 0;
+        const hab = escena.dataset.habitat || "marte";
+        principal.dibujar(PLANETA[hab] || "marte", giro);
+        const c = COMPANERO[hab];
+        if (compa && c) compa.dibujar(c, giro * 1.7 + 0.4);
+    }
+    requestAnimationFrame(cuadro);
 })();

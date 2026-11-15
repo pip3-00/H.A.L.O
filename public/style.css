@@ -712,3 +712,92 @@ body::after { content: ""; position: fixed; right: -220px; bottom: -260px; width
     body::after, .panel-halo .nova-escenario::before { animation: none; }
     .vista[data-vista="panel"] .saludo, .vista[data-vista="panel"] > * { animation: none !important; }
 }
+
+/* ===== Destino seleccionable en el Inicio ===== */
+.bv-destino label { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: var(--tenue); margin: 0; }
+.bv-selector { display: flex; align-items: center; gap: .3rem; }
+.bv-selector select { appearance: none; -webkit-appearance: none; background: transparent !important; border: 0 !important; color: var(--texto) !important;
+    font-weight: 700; font-size: .92rem; text-transform: uppercase; letter-spacing: .03em; padding: .1rem .2rem !important; cursor: pointer; width: auto; max-width: 15rem; }
+.bv-selector select option { background: #111317; color: var(--texto); text-transform: none; }
+.bv-destino button.bv-flecha { width: 24px; height: 24px; padding: 0 !important; display: grid; place-items: center; border-radius: 50% !important;
+    border: 1px solid rgba(255,255,255,.18) !important; background: transparent !important; color: var(--texto) !important; font-size: 1rem; line-height: 1; cursor: pointer; }
+.bv-destino button.bv-flecha:hover { border-color: var(--acento) !important; color: var(--acento) !important; }
+
+/* Transición al cambiar de destino */
+.bv-escena.cambiando .bv-planeta { animation: bv-cambio-planeta .8s cubic-bezier(.2, .7, .2, 1), bv-girar 60s linear infinite; }
+.bv-escena.cambiando .bv-luna { animation: bv-cambio-luna .8s cubic-bezier(.2, .7, .2, 1); }
+@keyframes bv-cambio-planeta { from { opacity: 0; transform: scale(.7) rotate(-12deg); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes bv-cambio-luna { from { opacity: 0; transform: translateY(20px) scale(.6); } to { opacity: 1; transform: none; } }
+
+/* Compañero del planeta según el destino */
+/* Estación Espacial: la Tierra grande y la estación orbitando */
+.bv-escena[data-habitat="iss"] .bv-luna { width: 84px; height: 24px; border-radius: 3px; left: 6%; bottom: 18%;
+    background: linear-gradient(90deg, #2f5fa8 0 36%, #cfd5dc 36% 64%, #2f5fa8 64%); box-shadow: 0 0 12px rgba(160, 200, 255, .45); }
+.bv-escena[data-habitat="iss"] .bv-luna::before { content: ""; position: absolute; left: 50%; top: -8px; width: 14px; height: 40px; transform: translateX(-50%); border-radius: 3px; background: #e6e9ee; }
+/* Base lunar: la Luna grande y la Tierra pequeña a lo lejos */
+.bv-escena[data-habitat="luna"] .bv-luna { width: 64px; height: 64px;
+    background: radial-gradient(ellipse at 40% 45%, rgba(70,150,80,.9) 0 14%, transparent 15%), linear-gradient(110deg, #6fb3f0, #2667b8 55%, #0b2550);
+    box-shadow: inset -10px -8px 18px rgba(0,0,0,.75), 0 0 18px rgba(90,160,255,.35); }
+/* En tránsito: Marte más lejos y la nave en primer plano */
+
+.bv-escena[data-habitat="transito"] .bv-luna { width: 70px; height: 20px; border-radius: 10px 4px 4px 10px; left: 8%; bottom: 20%;
+    background: linear-gradient(90deg, #e9edf2 0 70%, #9aa5b1 70%); box-shadow: -14px 0 18px rgba(92, 203, 255, .7); }
+.bv-escena[data-habitat="transito"] .bv-luna::after { content: ""; position: absolute; left: 30%; top: -10px; width: 22px; height: 40px; border-radius: 2px;
+    background: linear-gradient(180deg, #2f5fa8 0 40%, transparent 40% 60%, #2f5fa8 60%); }
+
+/* ===== Planetas dibujados en canvas ===== */
+.bv-planeta canvas, .bv-luna canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: none; border: 0 !important; background: transparent !important; margin: 0 !important; border-radius: 50% !important; }
+.planetas-vivos .bv-planeta canvas { display: block; }
+/* Con el canvas activo se quitan las texturas CSS y los sombreados superpuestos */
+.planetas-vivos .bv-planeta { background-image: none !important; animation: none; }
+.planetas-vivos .bv-planeta::after { display: none; }
+.planetas-vivos .bv-planeta[data-habitat="marte"], .planetas-vivos .bv-planeta[data-habitat="transito"] { box-shadow: 0 0 70px rgba(255, 120, 60, .22), 0 0 160px rgba(255, 120, 60, .08); }
+.planetas-vivos .bv-planeta[data-habitat="iss"] { box-shadow: 0 0 40px rgba(90, 160, 255, .35), 0 0 140px rgba(90, 160, 255, .12); }
+.planetas-vivos .bv-planeta[data-habitat="luna"] { box-shadow: 0 0 60px rgba(220, 225, 235, .14); }
+/* Compañero: luna / Tierra pequeña en canvas, estación y nave en SVG */
+.bv-luna svg { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); filter: drop-shadow(0 0 6px rgba(160, 210, 255, .35)); }
+.planetas-vivos .bv-escena[data-habitat="marte"] .bv-luna, .planetas-vivos .bv-escena[data-habitat="luna"] .bv-luna,
+.planetas-vivos.bv-escena[data-habitat="marte"] .bv-luna, .planetas-vivos.bv-escena[data-habitat="luna"] .bv-luna { background: none !important; box-shadow: none !important; }
+.planetas-vivos.bv-escena[data-habitat="marte"] .bv-luna canvas, .planetas-vivos.bv-escena[data-habitat="luna"] .bv-luna canvas { display: block; }
+.planetas-vivos.bv-escena[data-habitat="marte"] .bv-luna { width: 46px; height: 46px; }
+.planetas-vivos.bv-escena[data-habitat="luna"] .bv-luna { width: 60px; height: 60px; filter: drop-shadow(0 0 10px rgba(90, 160, 255, .45)); }
+.planetas-vivos.bv-escena[data-habitat="iss"] .bv-luna, .planetas-vivos.bv-escena[data-habitat="transito"] .bv-luna { background: none !important; box-shadow: none !important; border-radius: 0; width: 120px; height: 60px; }
+.planetas-vivos.bv-escena[data-habitat="iss"] .bv-luna::before, .planetas-vivos.bv-escena[data-habitat="transito"] .bv-luna::after { display: none; }
+.planetas-vivos.bv-escena[data-habitat="iss"] .bv-iss { display: block; width: 120px; }
+.planetas-vivos.bv-escena[data-habitat="transito"] .bv-nave { display: block; width: 120px; }
+.planetas-vivos.bv-escena[data-habitat="iss"] .bv-luna { animation: bv-flotar 7s ease-in-out infinite, bv-iss-gira 30s linear infinite; }
+@keyframes bv-iss-gira { 0%, 100% { rotate: -8deg; } 50% { rotate: 6deg; } }
+
+/* La regla general de canvas (bordes de las gráficas) no se aplica a los planetas */
+#bv-planeta-lienzo, #bv-luna-lienzo { display: none !important; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; max-width: none !important; }
+.planetas-vivos #bv-planeta-lienzo { display: block !important; }
+.planetas-vivos.bv-escena[data-habitat="marte"] #bv-luna-lienzo, .planetas-vivos.bv-escena[data-habitat="luna"] #bv-luna-lienzo { display: block !important; }
+
+/* ===== Logros a la derecha en Misión salud ===== */
+.logros-lateral { position: sticky; top: 1rem; }
+.logros-lista { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.logros-lista li { display: flex; align-items: center; gap: .75rem; padding: .6rem .7rem; border-radius: 12px; border: 1px solid var(--borde); background: rgba(255,255,255,.02); opacity: .6; transition: transform .2s, border-color .2s, opacity .2s; }
+.logros-lista li.ganado { opacity: 1; border-color: rgba(251, 191, 36, .45); background: linear-gradient(90deg, rgba(251, 191, 36, .1), transparent 70%); }
+.logros-lista li.ganado:hover { transform: translateX(3px); }
+.logro-medalla { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 50%; font-size: 1.15rem; background: rgba(255,255,255,.05); filter: grayscale(1); }
+.logros-lista li.ganado .logro-medalla { background: rgba(251, 191, 36, .16); filter: none; box-shadow: 0 0 14px rgba(251, 191, 36, .25); }
+.logro-texto { display: flex; flex-direction: column; line-height: 1.25; }
+.logro-texto b { font-size: .86rem; font-weight: 600; }
+.logro-texto small { font-size: .72rem; color: var(--tenue); }
+.logros-lista li.ganado .logro-texto small { color: var(--amarillo); }
+@media (max-width: 1199px) { .logros-lateral { position: static; } }
+.logros-lateral .juego-barra { margin: .5rem 0 .7rem; }
+
+/* ===== Compañero en órbita y destino sin tapar el planeta ===== */
+.bv-escena .bv-luna.en-orbita { left: 0 !important; top: 0 !important; bottom: auto !important; right: auto !important; animation: none !important;
+    rotate: none !important; transition: opacity .4s; will-change: transform; }
+.bv-escena .bv-luna.en-orbita.detras { z-index: 0; filter: brightness(.55); }
+.bv-escena .bv-luna.en-orbita:not(.detras) { z-index: 3; }
+.bv-planeta { width: min(290px, 70%); }
+.bv-destino { top: -4px; right: 0; }
+/* Flechas del destino: el mismo aspecto antes y después de pulsar (solo el teclado muestra el foco) */
+.bv-destino button.bv-flecha:focus { outline: none; border-color: rgba(255,255,255,.18) !important; color: var(--texto) !important; box-shadow: none !important; }
+.bv-destino button.bv-flecha:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.bv-destino button.bv-flecha:hover { border-color: var(--acento) !important; color: var(--acento) !important; }
+/* Órbita dentro de la escena para que el compañero no se salga por los lados */
+.bv-orbita { width: 92%; }
