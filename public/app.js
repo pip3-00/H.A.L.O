@@ -528,10 +528,22 @@ function mostrarResultados(mediciones, resultados, general) {
 let estadoAnterior = null;
 let cuentaAtras = null;
 
+function tiempoHablado(segundos) {
+    const min = Math.floor(segundos / 60);
+    const seg = segundos % 60;
+    const txtMin = min === 1 ? "1 minuto" : `${min} minutos`;
+    const txtSeg = seg === 1 ? "1 segundo" : `${seg} segundos`;
+    if (min === 0) return txtSeg;
+    if (seg === 0) return txtMin;
+    return `${txtMin} y ${txtSeg}`;
+}
+
 function iniciarAvisoTierra() {
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
     let restante = Math.round(habitat.retrasoSeg * 2);
+
+    hablar(`Aviso enviado a Tierra desde ${habitat.nombre}. Respuesta estimada en ${tiempoHablado(restante)}. ${habitat.protocolo}`, true);
 
     function pintar() {
         caja.innerHTML = `<div class="aviso">
@@ -577,12 +589,12 @@ function avisarTierra(resultados) {
 
 // ===== 3d. VOZ Y ALERTAS AUTOMÁTICAS =====
 
-function hablar(texto) {
+function hablar(texto, encolar = false) {
     if (!("speechSynthesis" in window)) return;
     const interruptor = document.getElementById("voz-activa");
     if (interruptor && !interruptor.checked) return;
 
-    speechSynthesis.cancel();
+    if (!encolar) speechSynthesis.cancel();   // corta lo que suene, salvo que se encole
 
     const limpio = texto.replace(/[*_#`]/g, "");
     const voz = new SpeechSynthesisUtterance(limpio);
@@ -646,8 +658,8 @@ function procesar() {
 
     registrarLectura(mediciones, resultados, entorno);
     graficarHistorial();
-    avisarTierra(resultados);
     anunciarAnomalias(resultados);
+    avisarTierra(resultados);
 
 }
 
@@ -697,22 +709,6 @@ document.getElementById("btn-graficar").addEventListener("click", function () {
 
 
 // ===== 5. ASISTENTE DE INTELIGENCIA ARTIFICIAL =====
-
-function hablar(texto) {
-    if (!("speechSynthesis" in window)) return;
-    if (!document.getElementById("voz-activa").checked) return;
-
-    speechSynthesis.cancel();   // corta lo que esté sonando
-
-    const limpio = texto.replace(/[*_#`]/g, "");   // quita símbolos de formato
-    const voz = new SpeechSynthesisUtterance(limpio);
-    voz.lang = "es-ES";
-
-    const vozEs = speechSynthesis.getVoices().find(v => v.lang.startsWith("es"));
-    if (vozEs) voz.voice = vozEs;
-
-    speechSynthesis.speak(voz);
-}
 
 async function consultarAsistente(pregunta) {
 
@@ -783,7 +779,6 @@ async function consultarAsistente(pregunta) {
         }
 
         mensajeIA.textContent = "run3rs IA: " + datos.respuesta;
-        hablar(datos.respuesta); 
 
     } catch (error) {
 
