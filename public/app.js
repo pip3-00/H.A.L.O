@@ -13,7 +13,7 @@ const INDICADORES = {
 const PRIORIDAD = { "sin-dato": 0, verde: 1, amarillo: 2, rojo: 3 };
 const HISTORIAL = [];
 const UMBRAL_TENDENCIA = 3;
-const INTERVALO_MS = 4000;
+const INTERVALO_MS = 10000;
 
 const NOMBRES = {
     temperatura: { nombre: "temperatura", unidad: "°C" },
@@ -300,14 +300,18 @@ function dibujarGrafico(idCanvas, dias, series) {
     ctx.font = "11px Arial";
     ctx.textAlign = "center";
 
-    dias.forEach((dia, i) => {
-        const x = posicionX(i);
 
-        ctx.fillText(
-            "D" + dia,
-            x,
-            alto - margenInferior + 20
-        );
+    dias.forEach((dia, i) => {
+        if (i > 0 && dia === dias[i - 1]) return;   // solo cuando cambia el día
+        const x = posicionX(i);
+        ctx.fillText("D" + dia, x, alto - margenInferior + 20);
+        if (i > 0) {
+            ctx.strokeStyle = "#444";
+            ctx.beginPath();
+            ctx.moveTo(x, margenSuperior);
+            ctx.lineTo(x, alto - margenInferior);
+            ctx.stroke();
+        }
     });
 
     // Dibujar series
@@ -402,37 +406,25 @@ function dibujarGrafico(idCanvas, dias, series) {
 
 
 function graficarHistorial() {
-    const porDia = {};
-    HISTORIAL.forEach(h => {
-        const dia = h.diaMision;
-        if (!porDia[dia]) porDia[dia] = { temp: [], freq: [], sist: [], diast: [], gluc: [], sueno: [], animo: [] };
-        porDia[dia].temp.push(h.mediciones.temperatura);
-        porDia[dia].freq.push(h.mediciones.frecuencia);
-        porDia[dia].sist.push(h.mediciones.sistolica);
-        porDia[dia].diast.push(h.mediciones.diastolica);
-        porDia[dia].gluc.push(h.mediciones.glucosa);
-        porDia[dia].sueno.push(h.mediciones.sueno);
-        porDia[dia].animo.push(h.mediciones.animo);
-    });
+    const lecturas = HISTORIAL.slice(-30);
+    if (lecturas.length < 1) return;
+    const dias = lecturas.map(h => h.diaMision);
+    const col = clave => lecturas.map(h => h.mediciones[clave]);
 
-    const dias = Object.keys(porDia).map(Number).sort((a, b) => a - b);
-    if (dias.length < 1) return;
-
-    // Gráfico 1: Signos vitales
     dibujarGrafico("grafica-vitales", dias, [
-        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: dias.map(d => promedio(porDia[d].temp)) },
-        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: dias.map(d => promedio(porDia[d].freq)) },
-        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: dias.map(d => promedio(porDia[d].sist)) },
-        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: dias.map(d => promedio(porDia[d].diast)) },
-        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: dias.map(d => promedio(porDia[d].gluc)) },
+        { clave: "Temp", color: "#e74c3c", min: 34, max: 41, datos: col("temperatura") },
+        { clave: "FC", color: "#3498db", min: 30, max: 140, datos: col("frecuencia") },
+        { clave: "Sist", color: "#2ecc71", min: 70, max: 190, datos: col("sistolica") },
+        { clave: "Diast", color: "#9b59b6", min: 40, max: 130, datos: col("diastolica") },
+        { clave: "Gluc", color: "#f39c12", min: 40, max: 260, datos: col("glucosa") },
     ]);
 
-    // Gráfico 2: Bienestar
     dibujarGrafico("grafica-bienestar", dias, [
-        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: dias.map(d => promedio(porDia[d].sueno)) },
-        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: dias.map(d => promedio(porDia[d].animo)) },
+        { clave: "Sueño (h)", color: "#1abc9c", min: 0, max: 12, datos: col("sueno") },
+        { clave: "Ánimo", color: "#e67e22", min: 0, max: 5, datos: col("animo") },
     ]);
 }
+
 
 function mostrarEntorno(entorno) {
     const panel = document.getElementById("panel-entorno");
@@ -536,10 +528,22 @@ function mostrarResultados(mediciones, resultados, general) {
 let estadoAnterior = null;
 let cuentaAtras = null;
 
+function tiempoHablado(segundos) {
+    const min = Math.floor(segundos / 60);
+    const seg = segundos % 60;
+    const txtMin = min === 1 ? "1 minuto" : `${min} minutos`;
+    const txtSeg = seg === 1 ? "1 segundo" : `${seg} segundos`;
+    if (min === 0) return txtSeg;
+    if (seg === 0) return txtMin;
+    return `${txtMin} y ${txtSeg}`;
+}
+
 function iniciarAvisoTierra() {
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
     let restante = Math.round(habitat.retrasoSeg * 2);
+
+    hablar(`Aviso enviado a Tierra desde ${habitat.nombre}. Respuesta estimada en ${tiempoHablado(restante)}. ${habitat.protocolo}`, true);
 
     function pintar() {
         caja.innerHTML = `<div class="aviso">
@@ -583,6 +587,62 @@ function avisarTierra(resultados) {
     }
 }
 
+// ===== 3d. VOZ Y ALERTAS AUTOMÁTICAS =====
+
+function hablar(texto, encolar = false) {
+    if (!("speechSynthesis" in window)) return;
+    const interruptor = document.getElementById("voz-activa");
+    if (interruptor && !interruptor.checked) return;
+
+    if (!encolar) speechSynthesis.cancel();   // corta lo que suene, salvo que se encole
+
+    const limpio = texto.replace(/[*_#`]/g, "");
+    const voz = new SpeechSynthesisUtterance(limpio);
+    voz.lang = "es-ES";
+
+    const vozEs = speechSynthesis.getVoices().find(v => v.lang.startsWith("es"));
+    if (vozEs) voz.voice = vozEs;
+
+    speechSynthesis.speak(voz);
+}
+
+const alertasAnunciadas = {};
+
+function anunciarAnomalias(resultados) {
+    const textos = [];
+
+    for (const clave in resultados) {
+        const r = resultados[clave];
+
+        if (r.direccion === null) {
+            delete alertasAnunciadas[clave];
+            continue;
+        }
+
+        const llave = r.estado + "-" + r.direccion;
+        if (alertasAnunciadas[clave] === llave) continue;
+        alertasAnunciadas[clave] = llave;
+
+        const m = MENSAJES[clave] && MENSAJES[clave][llave];
+        if (!m) continue;
+
+        const masculino = clave === "sueno" || clave === "animo";
+        const grado = r.estado === "rojo"
+            ? "en nivel de alerta"
+            : (masculino ? "moderadamente alterado" : "moderadamente alterada");
+
+        textos.push(`Tu ${NOMBRES[clave].nombre.toLowerCase()} está ${grado}. ${m.pasa} ${m.hacer}`);
+    }
+
+    if (textos.length === 0) return;
+
+    const texto = textos.join(" ");
+    const mensaje = document.createElement("p");
+    mensaje.textContent = "run3rs IA (alerta automática): " + texto;
+    document.getElementById("chat-ia").appendChild(mensaje);
+    hablar(texto);
+}
+
 // ===== 3c. FLUJO PRINCIPAL =====
 
 function procesar() {
@@ -597,6 +657,8 @@ function procesar() {
     mostrarEntorno(entorno);
 
     registrarLectura(mediciones, resultados, entorno);
+    graficarHistorial();
+    anunciarAnomalias(resultados);
     avisarTierra(resultados);
 
 }
@@ -609,16 +671,18 @@ formulario.addEventListener("submit", function (evento) {
     procesar();
 });
 
-const botonAstroskin = document.getElementById("btn-astroskin");
-botonAstroskin.addEventListener("click", function () {
-    simularAstroskin();
-    procesar();
-});
 
 let temporizador = null;
 const botonVivo = document.getElementById("btn-vivo");
 
+let lecturasEnVivo = 0;
+
 function cicloEnVivo() {
+    if (lecturasEnVivo > 0 && lecturasEnVivo % 6 === 0) {   // 6 lecturas x 10 s = 1 día por minuto
+        const campoDia = document.getElementById("dia-mision");
+        campoDia.value = Number(campoDia.value) + 1;
+    }
+    lecturasEnVivo++;
     simularAstroskin();
     procesar();
 }
@@ -627,11 +691,11 @@ botonVivo.addEventListener("click", function () {
     if (temporizador === null) {
         cicloEnVivo();
         temporizador = setInterval(cicloEnVivo, INTERVALO_MS);
-        botonVivo.textContent = "Detener modo en vivo";
+        botonVivo.textContent = "Detener datos simulados";
     } else {
         clearInterval(temporizador);
         temporizador = null;
-        botonVivo.textContent = "Iniciar modo en vivo";
+        botonVivo.textContent = "Iniciar datos simulados";
     }
 });
 
@@ -643,6 +707,110 @@ document.getElementById("btn-graficar").addEventListener("click", function () {
     graficarHistorial();
 });
 
-document.getElementById("btn-asistente").addEventListener("click", function () {
-    // llama a consultarAsistente() con los datos actuales
-});
+
+// ===== 5. ASISTENTE DE INTELIGENCIA ARTIFICIAL =====
+
+async function consultarAsistente(pregunta) {
+
+    const chat = document.getElementById("chat-ia");
+    const boton = document.getElementById("btn-asistente");
+
+    const mediciones = leerMediciones();
+    const resultados = evaluarTodo(mediciones);
+    const entorno = calcularEntorno();
+    const general = peorEstado(resultados);
+
+    const contexto = {
+        proyecto: "run3rs",
+        diaMision: entorno.diaMision,
+        habitat: entorno.nombreHabitat,
+        mediciones: mediciones,
+        resultados: resultados,
+        estadoGeneral: TEXTO_ESTADO[general],
+        historial: HISTORIAL.slice(-10).map(h =>({
+            dia: h.diaMision,
+            mediciones: h.mediciones,
+            estados: Object.fromEntries(
+                Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
+            )
+        })),
+        entorno: {
+            radiacionMSv: entorno.radiacionMSv,
+            porcentajeLimite: entorno.porcentajeLimite,
+            gravedad: entorno.gravedad,
+            perdidaOsea: entorno.perdidaOsea
+        }
+    };
+
+    const mensajeUsuario = document.createElement("p");
+    mensajeUsuario.textContent = "Astronauta: " + pregunta;
+
+    const mensajeIA = document.createElement("p");
+    mensajeIA.textContent = "run3rs IA: Analizando mediciones...";
+
+    chat.appendChild(mensajeUsuario);
+    chat.appendChild(mensajeIA);
+
+    boton.disabled = true;
+    boton.textContent = "Consultando asistente...";
+
+    try {
+
+        const respuesta = await fetch(
+            "/api/asistente",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    pregunta: pregunta,
+                    contexto: contexto
+                })
+            }
+        );
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+            throw new Error(
+                datos.error || "No se pudo consultar el asistente."
+            );
+        }
+
+        mensajeIA.textContent = "run3rs IA: " + datos.respuesta;
+
+    } catch (error) {
+
+        console.error("Error de consulta:", error);
+
+        mensajeIA.textContent =
+            "run3rs IA: No fue posible conectar con el asistente. " +
+            error.message;
+
+    } finally {
+
+        boton.disabled = false;
+        boton.textContent = "Consultar asistente de a bordo";
+
+    }
+}
+
+
+// Conectar formulario del asistente
+
+document.getElementById("formulario-asistente")
+    .addEventListener("submit", async function(evento) {
+
+        evento.preventDefault();
+
+        const campo = document.getElementById("pregunta-asistente");
+
+        const pregunta = campo.value.trim();
+
+        if (!pregunta) return;
+
+        campo.value = "";
+
+        await consultarAsistente(pregunta);
+    });
