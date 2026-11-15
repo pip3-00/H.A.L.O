@@ -1,93 +1,115 @@
+// netlify/functions/asistente.mjs
+const MODELO = "gemini-2.5-flash-lite";
+const TIMEOUT_MS = 8000;
+
+const json = (obj, status = 200) =>
+    new Response(JSON.stringify(obj), {
+        status,
+        headers: { "Content-Type": "application/json" }
+    });
+
+const RANGOS = {
+    temperatura: { min: 36.1, max: 37.5, unidad: "°C", nombre: "temperatura" },
+    frecuencia: { min: 60, max: 100, unidad: "bpm", nombre: "frecuencia cardíaca" },
+    sistolica: { min: 90, max: 140, unidad: "mmHg", nombre: "presión sistólica" },
+    diastolica: { min: 60, max: 90, unidad: "mmHg", nombre: "presión diastólica" },
+    glucosa: { min: 70, max: 140, unidad: "mg/dL", nombre: "glucosa" },
+    sueno: { min: 6, max: 9, unidad: "horas", nombre: "sueño" },
+    animo: { min: 3, max: 5, unidad: "/5", nombre: "ánimo" }
+};
+
+// Respaldo local: si Gemini falla o tarda, la demo sigue funcionando.
+function respuestaLocal(m) {
+    const lineas = [];
+    for (const [clave, r] of Object.entries(RANGOS)) {
+        const v = m[clave];
+        if (v === undefined || v === null) continue;
+        if (v < r.min) lineas.push(`${r.nombre}: ${v} ${r.unidad}, por debajo del rango (${r.min}-${r.max}).`);
+        else if (v > r.max) lineas.push(`${r.nombre}: ${v} ${r.unidad}, por encima del rango (${r.min}-${r.max}).`);
+    }
+    if (lineas.length === 0) {
+        return "Tus indicadores están dentro de los rangos de referencia. Sigue con tu rutina de medición.";
+    }
+    return "Indicadores fuera de rango:\n- " + lineas.join("\n- ") +
+        "\nVuelve a medir en 30 minutos. Si persiste, activa el protocolo y avisa al equipo médico en Tierra.";
+}
+
+function construirPrompt(pregunta, m, e) {
+    return `Eres un asistente de salud a bordo para astronautas en misiones de larga duración.
+El astronauta no es médico: responde en español, con lenguaje simple, en máximo 6 oraciones.
+Indica (1) qué puede estar pasando, (2) qué hacer ahora, (3) cuándo avisar a Tierra.
+No des diagnósticos definitivos. Si faltan datos, dilo.
+
+Mediciones del astronauta: ${JSON.stringify(m)}
+Rangos de referencia: ${JSON.stringify(RANGOS)}
+Entorno (hábitat, día de misión, radiación acumulada, pérdida ósea estimada): ${JSON.stringify(e)}
+
+Pregunta del astronauta: ${pregunta || "Evalúa mi estado de salud actual."}`;
+}
+
 export default async (req) => {
     if (req.method !== "POST") {
-        return new Response(
-            JSON.stringify({ error: "Método no permitido" }),
-            { status: 405, headers: { "Content-Type": "application/json" } }
-        );
+        return json({ error: "Método no permitido" }, 405);
     }
 
+    let body;
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        body = await req.json();
+    } catch {
+        return json({ error: "Solicitud inválida." }, 400);
+    }
 
-        if (!apiKey) {
-            return new Response(
-                JSON.stringify({ error: "La API Key de Gemini no está configurada." }),
-                { status: 500, headers: { "Content-Type": "application/json" } }
-            );
-        }
+    const pregunta = (body.pregunta || "").trim();
+    const m = body.mediciones || {};
+    const e = body.entorno || {};
 
-        const body = await req.json();
-        const pregunta = body.pregunta;
-        const mediciones = body.mediciones || {};
-        const entorno = body.entorno || {};
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return json({ respuesta: respuestaLocal(m), fuente: "local (sin API key)" });
+    }
 
-        if (typeof pregunta !== "string" || pregunta.trim().length === 0) {
-            return new Response(
-                JSON.stringify({ error: "Pregunta inválida." }),
-                { status: 400, headers: { "Content-Type": "application/json" } }
-            );
-        }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
 
-        const prompt = `Eres el asistente médico de a bordo de run3rs, un sistema de monitoreo de salud para astronautas en misiones de larga duración.
-
-DATOS ACTUALES DEL ASTRONAUTA:
-- Temperatura: ${mediciones.temperatura || "N/A"}°C
-- Frecuencia cardíaca: ${mediciones.frecuencia || "N/A"} bpm
-- Presión arterial: ${mediciones.sistolica || "N/A"}/${mediciones.diastolica || "N/A"} mmHg
-- Glucosa: ${mediciones.glucosa || "N/A"} mg/dL
-- Horas de sueño: ${mediciones.sueno || "N/A"}
-- Estado de ánimo: ${mediciones.animo || "N/A"}/5
-- Radiación acumulada: ${mediciones.radiacionAcumulada || "N/A"} mSv
-
-ENTORNO:
-- Hábitat: ${entorno.habitat || "N/A"}
-- Día de misión: ${entorno.diaMision || "N/A"}
-- Gravedad: ${entorno.gravedad || "N/A"}
-
-PREGUNTA DEL ASTRONAUTA:
-${pregunta}
-
-INSTRUCCIONES:
-- Responde en español, claro y breve (máximo 3 párrafos).
-- Usa los datos proporcionados para dar una respuesta personalizada.
-- Si hay valores fuera de rango, explica qué significa y qué hacer.
-- No inventes datos ni diagnósticos definitivos.
-- Si hay alerta grave, recomienda contactar al equipo médico en Tierra.`;
-
-        const respuesta = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+    try {
+        const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`,
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                signal: ctrl.signal,
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { maxOutputTokens: 500 }
+                    contents: [{ parts: [{ text: construirPrompt(pregunta, m, e) }] }],
+                    generationConfig: {
+                        maxOutputTokens: 400,
+                        temperature: 0.4,
+                        thinkingConfig: { thinkingBudget: 0 }
+                    }
                 })
             }
         );
+        clearTimeout(timer);
 
-        const datos = await respuesta.json();
+        const datos = await resp.json();
+        console.log("Gemini:", resp.status, JSON.stringify(datos).slice(0, 500));
 
-        if (!respuesta.ok) {
-            console.error("Error de Gemini:", datos);
-            return new Response(
-                JSON.stringify({ error: datos.error?.message || "No se pudo procesar la consulta." }),
-                { status: respuesta.status, headers: { "Content-Type": "application/json" } }
-            );
+        if (!resp.ok) {
+            return json({
+                respuesta: respuestaLocal(m),
+                fuente: `local (Gemini ${resp.status}: ${datos.error?.message || "error"})`
+            });
         }
 
-        const texto = datos.candidates?.[0]?.content?.parts?.[0]?.text || "No se obtuvo respuesta.";
+        const texto = datos.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!texto) {
+            return json({ respuesta: respuestaLocal(m), fuente: "local (respuesta vacía)" });
+        }
 
-        return new Response(
-            JSON.stringify({ respuesta: texto }),
-            { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-
-    } catch (error) {
-        console.error("Error del asistente:", error);
-        return new Response(
-            JSON.stringify({ error: "Error interno al consultar el asistente." }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
-        );
+        return json({ respuesta: texto, fuente: "gemini" });
+    } catch (err) {
+        clearTimeout(timer);
+        console.error("Error del asistente:", err);
+        const motivo = err.name === "AbortError" ? "timeout" : "error de red";
+        return json({ respuesta: respuestaLocal(m), fuente: `local (${motivo})` });
     }
 };
