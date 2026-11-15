@@ -993,8 +993,8 @@ function vaciarAlertasPendientes() {
 function resumenParaVoz(texto) {
     const frases = (texto || "").replace(/\s+/g, " ").match(/[^.!?]+[.!?]?/g) || [texto];
     let salida = "";
-    for (const f of frases.slice(0, 3)) {
-        if ((salida + f).length > 320) break;
+    for (const f of frases.slice(0, 5)) {
+        if ((salida + f).length > 600) break;
         salida += f;
     }
     return (salida || frases[0] || "").trim();
