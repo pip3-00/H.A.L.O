@@ -538,6 +538,71 @@ function tiempoHablado(segundos) {
     return `${txtMin} y ${txtSeg}`;
 }
 
+// ===== 3e. RELOJ (wearable simulado, diseño de Figma) =====
+
+let relojTierra = null;          // null | { restante } | { recibida: true }
+let ultimoReloj = null;          // { mediciones, resultados }
+let relojModoAnterior = null;
+
+function actualizarReloj() {
+    const cont = document.getElementById("reloj");
+    if (!cont || !ultimoReloj) return;
+    const { mediciones, resultados } = ultimoReloj;
+
+    // Indicador más grave (si todo está normal, se muestra la frecuencia cardíaca)
+    let clave = "frecuencia";
+    for (const k in resultados) {
+        if (PRIORIDAD[resultados[k].estado] > PRIORIDAD[resultados[clave].estado]) clave = k;
+    }
+    const r = resultados[clave];
+    const habitat = HABITATS[document.getElementById("habitat").value];
+    const dia = document.getElementById("dia-mision").value || 1;
+
+    let modo = r.estado === "rojo" ? "alerta" : r.estado === "amarillo" ? "atencion" : "normal";
+    if (relojTierra && relojTierra.recibida) modo = "tierra";
+
+    const valor = mediciones[clave];
+    const llave = r.estado + "-" + r.direccion;
+    const m = (MENSAJES[clave] && MENSAJES[clave][llave]) || (MENSAJES_PRESION[llave]);
+    const nombre = NOMBRES[clave].nombre;
+
+    const pills = { normal: "NORMAL", atencion: "ATENCIÓN", alerta: "ALERTA", tierra: "TIERRA" };
+    let titulo, texto, tarjeta = "";
+
+    if (modo === "normal") {
+        titulo = "Todos tus indicadores están en rango";
+        texto = "Sigue con tu rutina.";
+    } else if (modo === "tierra") {
+        titulo = "Respuesta de Tierra recibida";
+        texto = "Sigue el protocolo y vuelve a medir.";
+        tarjeta = `<div class="reloj-aviso"><b>MODO AUTONOMÍA</b><span>${habitat.protocolo}</span></div>`;
+    } else {
+        const masc = clave === "sueno" || clave === "animo";
+        const grado = modo === "alerta" ? "en nivel de alerta" : (masc ? "moderadamente alterado" : "moderadamente alterada");
+        titulo = modo === "alerta" ? (m ? m.pasa : "Valor en alerta") : `Tu ${nombre.toLowerCase()} está ${grado}`;
+        texto = m ? m.hacer : "Vuelve a medir.";
+        if (modo === "alerta" && relojTierra && relojTierra.restante !== undefined) {
+            tarjeta = `<div class="reloj-aviso"><b>AVISO ENVIADO A TIERRA</b><span>Respuesta estimada en ${formatearTiempo(relojTierra.restante)}</span></div>`;
+        }
+    }
+
+    cont.className = "reloj reloj-" + modo;
+    cont.innerHTML = `
+        <div class="reloj-cab"><span>Día ${dia}</span><span>${habitat.nombre}</span></div>
+        <div class="reloj-pill">${pills[modo]}</div>
+        <div class="reloj-etq">${modo === "tierra" ? "Respuesta simulada" : nombre}</div>
+        <div class="reloj-valor">${modo === "tierra" ? "OK" : (valor === null ? "--" : valor)}<small>${modo === "tierra" ? "" : NOMBRES[clave].unidad}</small></div>
+        <div class="reloj-titulo">${titulo}</div>
+        <div class="reloj-texto">${texto}</div>
+        ${tarjeta}`;
+
+    // Vibración del reloj solo al cambiar a atención/alerta
+    if (modo !== relojModoAnterior && (modo === "atencion" || modo === "alerta") && navigator.vibrate) {
+        navigator.vibrate(modo === "alerta" ? [300, 120, 300, 120, 300] : [200, 100, 200]);
+    }
+    relojModoAnterior = modo;
+}
+
 function iniciarAvisoTierra() {
     const habitat = HABITATS[document.getElementById("habitat").value];
     const caja = document.getElementById("aviso-tierra");
@@ -546,6 +611,8 @@ function iniciarAvisoTierra() {
     hablar(`Aviso enviado a Tierra desde ${habitat.nombre}. Respuesta estimada en ${tiempoHablado(restante)}. ${habitat.protocolo}`, true);
 
     function pintar() {
+        relojTierra = { restante: restante };
+        actualizarReloj();
         caja.innerHTML = `<div class="aviso">
         <strong>AVISO ENVIADO A TIERRA</strong> (${habitat.nombre})
         <p>Respuesta estimada en <strong>${formatearTiempo(restante)}</strong></p>
@@ -560,6 +627,8 @@ function iniciarAvisoTierra() {
         if (restante <= 0) {
             clearInterval(cuentaAtras);
             caja.innerHTML = `<div class="aviso">Respuesta de Tierra recibida (simulada).</div>`;
+            relojTierra = { recibida: true };
+            actualizarReloj();
             return;
         }
         pintar();
@@ -584,6 +653,7 @@ function avisarTierra(resultados) {
         estadoAnterior = "alerta-enviada";
     } else if (!emergenciaAguda && tendencias.length === 0) {
         estadoAnterior = null;
+        relojTierra = null;
     }
 }
 
@@ -661,6 +731,8 @@ function procesar() {
     anunciarAnomalias(resultados);
     avisarTierra(resultados);
 
+    ultimoReloj = { mediciones: mediciones, resultados: resultados };
+    actualizarReloj();
 }
 
 // ===== 4. CONEXIONES =====
@@ -671,6 +743,18 @@ formulario.addEventListener("submit", function (evento) {
     procesar();
 });
 
+
+
+// Botón "Ver simulación": muestra/oculta el reloj
+const botonReloj = document.getElementById("btn-reloj");
+if (botonReloj) {
+    botonReloj.addEventListener("click", function () {
+        const panel = document.getElementById("reloj-panel");
+        panel.hidden = !panel.hidden;
+        botonReloj.textContent = panel.hidden ? "Ver simulación" : "Ocultar simulación";
+        if (!panel.hidden) actualizarReloj();
+    });
+}
 
 let temporizador = null;
 const botonVivo = document.getElementById("btn-vivo");
@@ -727,11 +811,11 @@ async function consultarAsistente(pregunta) {
         mediciones: mediciones,
         resultados: resultados,
         estadoGeneral: TEXTO_ESTADO[general],
-        historial: HISTORIAL.slice(-10).map(h =>({
+        historial: HISTORIAL.slice(-10).map(h => ({
             dia: h.diaMision,
             mediciones: h.mediciones,
             estados: Object.fromEntries(
-                Object.entries(h.resultados).map(([k,v]) => [k, v.estado])
+                Object.entries(h.resultados).map(([k, v]) => [k, v.estado])
             )
         })),
         entorno: {
@@ -800,7 +884,7 @@ async function consultarAsistente(pregunta) {
 // Conectar formulario del asistente
 
 document.getElementById("formulario-asistente")
-    .addEventListener("submit", async function(evento) {
+    .addEventListener("submit", async function (evento) {
 
         evento.preventDefault();
 
