@@ -575,6 +575,62 @@ function avisarTierra(resultados) {
     }
 }
 
+// ===== 3d. VOZ Y ALERTAS AUTOMÁTICAS =====
+
+function hablar(texto) {
+    if (!("speechSynthesis" in window)) return;
+    const interruptor = document.getElementById("voz-activa");
+    if (interruptor && !interruptor.checked) return;
+
+    speechSynthesis.cancel();
+
+    const limpio = texto.replace(/[*_#`]/g, "");
+    const voz = new SpeechSynthesisUtterance(limpio);
+    voz.lang = "es-ES";
+
+    const vozEs = speechSynthesis.getVoices().find(v => v.lang.startsWith("es"));
+    if (vozEs) voz.voice = vozEs;
+
+    speechSynthesis.speak(voz);
+}
+
+const alertasAnunciadas = {};
+
+function anunciarAnomalias(resultados) {
+    const textos = [];
+
+    for (const clave in resultados) {
+        const r = resultados[clave];
+
+        if (r.direccion === null) {
+            delete alertasAnunciadas[clave];
+            continue;
+        }
+
+        const llave = r.estado + "-" + r.direccion;
+        if (alertasAnunciadas[clave] === llave) continue;
+        alertasAnunciadas[clave] = llave;
+
+        const m = MENSAJES[clave] && MENSAJES[clave][llave];
+        if (!m) continue;
+
+        const masculino = clave === "sueno" || clave === "animo";
+        const grado = r.estado === "rojo"
+            ? "en nivel de alerta"
+            : (masculino ? "moderadamente alterado" : "moderadamente alterada");
+
+        textos.push(`Tu ${NOMBRES[clave].nombre.toLowerCase()} está ${grado}. ${m.pasa} ${m.hacer}`);
+    }
+
+    if (textos.length === 0) return;
+
+    const texto = textos.join(" ");
+    const mensaje = document.createElement("p");
+    mensaje.textContent = "run3rs IA (alerta automática): " + texto;
+    document.getElementById("chat-ia").appendChild(mensaje);
+    hablar(texto);
+}
+
 // ===== 3c. FLUJO PRINCIPAL =====
 
 function procesar() {
@@ -591,6 +647,7 @@ function procesar() {
     registrarLectura(mediciones, resultados, entorno);
     graficarHistorial();
     avisarTierra(resultados);
+    anunciarAnomalias(resultados);
 
 }
 
@@ -640,6 +697,22 @@ document.getElementById("btn-graficar").addEventListener("click", function () {
 
 
 // ===== 5. ASISTENTE DE INTELIGENCIA ARTIFICIAL =====
+
+function hablar(texto) {
+    if (!("speechSynthesis" in window)) return;
+    if (!document.getElementById("voz-activa").checked) return;
+
+    speechSynthesis.cancel();   // corta lo que esté sonando
+
+    const limpio = texto.replace(/[*_#`]/g, "");   // quita símbolos de formato
+    const voz = new SpeechSynthesisUtterance(limpio);
+    voz.lang = "es-ES";
+
+    const vozEs = speechSynthesis.getVoices().find(v => v.lang.startsWith("es"));
+    if (vozEs) voz.voice = vozEs;
+
+    speechSynthesis.speak(voz);
+}
 
 async function consultarAsistente(pregunta) {
 
@@ -710,6 +783,7 @@ async function consultarAsistente(pregunta) {
         }
 
         mensajeIA.textContent = "run3rs IA: " + datos.respuesta;
+        hablar(datos.respuesta); 
 
     } catch (error) {
 

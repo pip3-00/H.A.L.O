@@ -78,36 +78,36 @@
             <canvas id="grafica-vitales" width="700" height="300"></canvas>
             <h3>Bienestar</h3>
             <canvas id="grafica-bienestar" width="700" height="250"></canvas>
-            
-<section id="seccion-asistente">
-    <h3>Asistente de a bordo - run3rs</h3>
 
-    <p>
-        Consulta tus mediciones y recibe orientación
-        del asistente inteligente.
-    </p>
+            <section id="seccion-asistente">
+                <h3>Asistente de a bordo - run3rs</h3>
 
-    <form id="formulario-asistente">
-        <div class="campo">
-            <label for="pregunta-asistente">
-                ¿Qué deseas consultar?
-            </label>
+                <p>
+                    Consulta tus mediciones y recibe orientación
+                    del asistente inteligente.
+                </p>
 
-            <textarea
-                id="pregunta-asistente"
-                maxlength="1000"
-                placeholder="Ejemplo: ¿Por qué mi glucosa está en alerta?"
-                required
-            ></textarea>
-        </div>
+                <form id="formulario-asistente">
+                    <div class="campo">
+                        <label for="pregunta-asistente">
+                            ¿Qué deseas consultar?
+                        </label>
 
-        <button type="submit" id="btn-asistente">
-            Consultar asistente de a bordo
-        </button>
-    </form>
+                        <textarea id="pregunta-asistente" maxlength="1000"
+                            placeholder="Ejemplo: ¿Por qué mi glucosa está en alerta?" required></textarea>
+                    </div>
 
-    <div id="chat-ia" aria-live="polite"></div>
-</section>
+                    <label>
+                        <input type="checkbox" id="voz-activa" checked> Respuesta por voz
+                    </label>
+
+                    <button type="submit" id="btn-asistente">
+                        Consultar asistente de a bordo
+                    </button>
+                </form>
+
+                <div id="chat-ia" aria-live="polite"></div>
+            </section>
 
         </section>
     </main>
