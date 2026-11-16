@@ -1,0 +1,59 @@
+{
+  "_descripcion": "Qué mide cada wearable simulado. La glucosa llega de un parche aparte (CGM) y el ánimo lo registra el astronauta.",
+  "wearables": [
+    {
+      "id": "reloj",
+      "nombre": "Reloj inteligente (prototipo run3rs)",
+      "mide": [
+        "temperatura de la piel",
+        "frecuencia cardíaca",
+        "presión (estimada, calibrada con tensiómetro)",
+        "sueño"
+      ],
+      "extras": [
+        "SpO2",
+        "actividad"
+      ],
+      "referencia": "Apple Watch Series 11 / Galaxy Watch"
+    },
+    {
+      "id": "whoop",
+      "nombre": "Banda WHOOP MG",
+      "mide": [
+        "temperatura de la piel",
+        "frecuencia cardíaca",
+        "presión (estimación diaria al despertar, beta)",
+        "sueño"
+      ],
+      "extras": [
+        "SpO2",
+        "frecuencia respiratoria",
+        "variabilidad cardíaca",
+        "esfuerzo"
+      ],
+      "referencia": "WHOOP MG (2025)"
+    },
+    {
+      "id": "biomonitor",
+      "nombre": "Bio-Monitor (Agencia Espacial Canadiense)",
+      "mide": [
+        "temperatura de la piel",
+        "frecuencia cardíaca y ECG",
+        "presión arterial"
+      ],
+      "no_mide": [
+        "sueño"
+      ],
+      "extras": [
+        "SpO2",
+        "frecuencia y volumen respiratorio",
+        "actividad"
+      ],
+      "referencia": "CSA Bio-Monitor (Astroskin) en la ISS"
+    }
+  ],
+  "siempre": {
+    "glucosa": "parche de glucosa (CGM tipo Dexcom o Libre), opcional",
+    "animo": "autorregistro con caritas"
+  }
+}

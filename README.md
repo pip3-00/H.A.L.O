@@ -1,10 +1,11 @@
 # H.A.L.O. — Health Assessment and Life-support Operations
 
+**English** · [Español](README.es.md)
+
 > Astronaut health monitoring software for long-duration missions.
 > **NASA Space Apps Challenge 2026 — Team REN3RS**
 
-![H.A.L.O. hero banner](docs/images/hero.png)
-<!-- Replace docs/images/hero.png with your banner image -->
+![H.A.L.O. home screen](docs/images/hero.png)
 
 🔗 **Live demo:** (https://lasana00.vercel.app/)
 🎥 **30-second demo video:** (https://drive.google.com/file/d/1XykPVtq1RWY58P0xgmo_GscTQLG0q8P_/view?usp=sharing)
@@ -20,35 +21,38 @@ Long-duration missions expose astronauts to space radiation, isolation and confi
 
 H.A.L.O. is a browser-based health monitoring app that:
 
-1. **Ingests vitals** from a simulated Astroskin-style wearable (temperature, heart rate, blood pressure, glucose, sleep, mood).
+1. **Ingests vitals from a simulated wearable** — a smartwatch prototype, a WHOOP MG band or the Canadian Space Agency Bio-Monitor. Each one simulates only what it really measures (temperature, heart rate, blood pressure, sleep); glucose comes from an optional CGM patch and mood is self-reported.
 2. **Evaluates** each reading against NASA / clinical thresholds and returns a state (green / yellow / red) plus a direction (high / low).
-3. **Explains in plain language** what the value means and what to do next — no diagnosis, verb-first instructions.
-4. **Adapts to the habitat** (ISS, Mars transit, Moon base, Mars base) — radiation accumulation, gravity, and Earth communication delay.
-5. **Integrates an AI assistant** (H.A.L.O. voice) that correlates vitals with habitat context.
-6. **Alerts Earth** on red states with the expected round-trip delay.
+3. **Explains in plain language** what the value means and what to do next — no diagnosis, verb-first instructions, and a "how it is measured and why it matters" guide for every indicator.
+4. **Shows dynamic charts** of how each indicator changes over time, against the astronaut's personal baseline.
+5. **Adapts to the habitat** (ISS, Mars transit, Moon base, Mars base) — radiation accumulation, gravity, bone loss, and Earth communication delay.
+6. **Talks with the astronaut** through the H.A.L.O. voice assistant (Gemini): answers questions about their vitals, explains alerts, tells jokes and checks in on how they feel during isolation.
+7. **Alerts Earth** immediately on any red indicator, or when a yellow indicator repeats in 3 consecutive readings, with the expected response delay.
+8. **Gamifies healthy habits** in *Health mission*: daily tasks, points, levels, streaks, achievements, and three training mini-games (reaction test, space-health trivia, box breathing).
 
 ![Main dashboard](docs/images/dashboard.png)
-<!-- Screenshot of the main vitals dashboard -->
 
 ---
 
 ## Screenshots
 
-### Vitals input
+### Vitals input and traffic-light indicators
 ![Vitals input screen](docs/images/vitals-input.png)
-<!-- Screenshot of the measurement input flow -->
+
+### Dynamic charts
+![Charts screen](docs/images/charts.png)
 
 ### Alert state + Earth transmission
 ![Red alert screen](docs/images/red-alert.png)
-<!-- Screenshot of a red-state alert with the Earth notification -->
 
 ### Habitat selection
 ![Habitat selector](docs/images/habitat.png)
-<!-- Screenshot of the habitat picker (ISS / transit / Moon / Mars) -->
 
 ### H.A.L.O. assistant
 ![AI assistant](docs/images/assistant.png)
-<!-- Screenshot of the AI assistant briefing -->
+
+### Health mission (gamification)
+![Health mission screen](docs/images/mission.png)
 
 ---
 
@@ -56,12 +60,13 @@ H.A.L.O. is a browser-based health monitoring app that:
 
 | Layer | Technology |
 |---|---|
-| Frontend | Vanilla HTML / CSS / JavaScript (no framework) |
+| Frontend | Vanilla HTML / CSS / JavaScript + Bootstrap 5 (no framework) |
+| Health logic | Python serverless function (`/api/evaluar`), with a JavaScript fallback in the browser |
+| AI assistant | Google Gemini through a Python serverless proxy (`/api/nova`) — the API key never reaches the client |
+| Voice | Gemini text-to-speech (`/api/voz`) + Web Speech API for recognition; browser voice as fallback |
 | Hosting | Vercel |
-| Serverless API proxy | Vercel Functions (`/api/asistente`) |
-| AI assistant | LLM via server-side proxy (API key kept off the client) |
 | State | `localStorage` (hackathon prototype) |
-| Repository layout | `public/` (app.js, index.html, style.css) · `api/` (serverless proxy) · `data/` · `docs/` |
+| Languages | Spanish and English (`public/i18n.js`) |
 
 ## Repository Structure
 
@@ -69,15 +74,21 @@ H.A.L.O. is a browser-based health monitoring app that:
 REN3RS/
 ├── public/
 │   ├── index.html        # App entry
-│   ├── app.js            # Client logic (evaluation, UI, storage)
-│   └── style.css
+│   ├── app.js            # Client logic (UI, simulation, charts, voice, gamification)
+│   ├── i18n.js           # English translations
+│   ├── style.css
+│   └── vendor/           # Bootstrap
 ├── api/
-│   └── asistente.mjs     # Serverless proxy for the AI assistant
-├── data/                 # Thresholds, habitat parameters, sources
+│   ├── evaluar.py        # Traffic-light evaluation and habitat model (Python)
+│   ├── nova.py           # H.A.L.O. assistant: Gemini proxy + local rules
+│   ├── voz.py            # Gemini text-to-speech
+│   └── asistente.js      # Legacy fallback for the assistant
+├── data/                 # Thresholds, habitat parameters, wearables and sources
 ├── docs/
-│   └── images/           # Screenshots for this README
+│   └── images/           # Screenshots for this README (es/ = Spanish version)
+├── servidor_local.py     # Local server: serves public/ and runs api/*.py
 ├── README.md
-└── .gitignore
+└── README.es.md
 ```
 
 ## Run Locally
@@ -85,20 +96,23 @@ REN3RS/
 ```bash
 git clone https://github.com/pip3-00/REN3RS.git
 cd REN3RS
-# Static app — open public/index.html directly, or serve it:
-npx serve public
+python servidor_local.py
+# open http://localhost:8000
 ```
 
-For the AI assistant (serverless proxy), deploy to Vercel:
+`servidor_local.py` serves the app and runs the Python API. Opening `public/index.html` directly (or with Live Server) works too, but the evaluation falls back to JavaScript and the assistant uses its local rules only.
+
+To deploy to Vercel:
 
 ```bash
 npm i -g vercel
 vercel
 ```
 
-Set the following environment variable in your Vercel project:
+Environment variables:
 
-- `AI_API_KEY` — API key for the LLM provider used by the assistant.
+- `GEMINI_API_KEY` — Google Gemini API key used by the assistant and the voice.
+- `HALO_VOZ` *(optional)* — Gemini voice name (default `Charon`).
 
 ---
 
@@ -106,25 +120,30 @@ Set the following environment variable in your Vercel project:
 
 ### Indicator evaluation
 
-Every reading is evaluated by `evaluarIndicador(value, indicator)` and returns:
+Every reading is evaluated by `evaluar_indicador(clave, valor)` in `api/evaluar.py` and returns:
 
-```js
-{ state: 'yellow', direction: 'high' }   // state: green | yellow | red
-                                          // direction: high | low | null
+```python
+{"estado": "amarillo", "direccion": "alto"}   # estado: verde | amarillo | rojo | sin-dato
+                                              # direccion: alto | bajo | None
 ```
 
-Messages are looked up by `state + direction`, so the app can say *"your temperature is a little high"* rather than just *"yellow."*
+Messages are looked up by `estado + direccion`, so the app can say *"your temperature is a little high"* rather than just *"yellow."* The thresholds are in [`data/umbrales.json`](data/umbrales.json).
+
+### Earth notification rule
+
+- **Red** in any indicator → notify Earth immediately.
+- **Yellow** → notify Earth only if it repeats in **3 consecutive readings** (3 consecutive days for daily indicators such as sleep).
 
 ### Habitat model
 
 | Habitat | Gravity | One-way delay | Radiation rate |
 |---|---|---|---|
-| ISS | microgravity | ~0.5 s | 0.2–0.5 mSv/day |
+| ISS | microgravity | ~0.5 s | 0.2–0.5 mSv/day (0.35 in the model) |
 | Mars transit | microgravity | 3–22 min | 1.8 mSv/day (Curiosity RAD) |
-| Moon base | ~1/6 g | ~1.3 s | — |
+| Moon base | ~1/6 g | ~1.3 s | 0.35 mSv/day (model) |
 | Mars base | ~1/3 g | 3–22 min | 0.64 mSv/day (Curiosity RAD) |
 
-Red-state protocols include a habitat-specific line (e.g., *"You are in maximum autonomy. Follow the protocol while the response arrives"* for Mars).
+Red-state protocols include a habitat-specific line (e.g., *"You are in maximum autonomy. Follow the protocol while the response arrives"* for Mars). Parameters are in [`data/habitats.json`](data/habitats.json).
 
 ---
 
@@ -142,13 +161,15 @@ Red-state protocols include a habitat-specific line (e.g., *"You are in maximum 
 - **MedlinePlus** — body temperature measurement; hypotension criteria.
 - **CDC** — adult sleep duration recommendations.
 - **CORDIS — ARTHEROSPACE** — cardiovascular deconditioning on return to gravity.
-- **Astroskin (Hexoskin / Carré Technologies)** — reference for the simulated wearable.
+- **Canadian Space Agency Bio-Monitor (Astroskin, Carré Technologies), WHOOP MG and Apple Watch Series 11** — references for the simulated wearables.
+
+Full list: [`data/fuentes.md`](data/fuentes.md).
 
 ---
 
 ## Use of Artificial Intelligence
 
-- **In the product.** H.A.L.O. integrates an LLM-powered assistant, called through a Vercel serverless function so the API key never ships to the client. The assistant correlates current vitals with habitat context; it never diagnoses — all clinical thresholds come from the sources above, not from the model.
+- **In the product.** H.A.L.O. integrates a Google Gemini assistant, called through a Vercel serverless function so the API key never ships to the client. The assistant correlates current vitals with habitat context; it never diagnoses — all clinical thresholds come from the sources above, not from the model. Without a connection it answers with local rules.
 - **In development.** Claude (Anthropic) was used during the 48-hour hackathon as a pair-programming and research assistant. All thresholds, sources, and user-facing clinical messages were verified against the original NASA / ADA / AHA / CDC / MedlinePlus documents before inclusion.
 
 ---
@@ -159,8 +180,6 @@ Red-state protocols include a habitat-specific line (e.g., *"You are in maximum 
 <!-- Add other team members here -->
 
 **Local event:** NASA Space Apps Santo Domingo — INTEC, Nov 14–15, 2026.
-
-
 
 ## Disclaimer
 

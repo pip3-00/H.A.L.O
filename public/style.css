@@ -801,3 +801,6 @@ body::after { content: ""; position: fixed; right: -220px; bottom: -260px; width
 .bv-destino button.bv-flecha:hover { border-color: var(--acento) !important; color: var(--acento) !important; }
 /* Órbita dentro de la escena para que el compañero no se salga por los lados */
 .bv-orbita { width: 92%; }
+
+/* Nombre del destino completo también en inglés */
+.bv-selector select { max-width: 20rem; font-size: .86rem; }

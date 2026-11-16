@@ -1,0 +1,94 @@
+{
+  "_descripcion": "Umbrales del semáforo. Copia de referencia de api/evaluar.py (fuente que usa la app). Regla: valor < rojo.min o >= rojo.max -> rojo; valor < amarillo.min -> amarillo (bajo); valor >= amarillo.max -> amarillo (alto); si no, verde. null = sin límite.",
+  "indicadores": {
+    "temperatura": {
+      "unidad": "°C",
+      "amarillo": {
+        "min": 36,
+        "max": 38
+      },
+      "rojo": {
+        "min": 35,
+        "max": 39
+      },
+      "fuente": "MedlinePlus — temperatura corporal"
+    },
+    "frecuencia": {
+      "unidad": "lpm",
+      "amarillo": {
+        "min": 50,
+        "max": 100
+      },
+      "rojo": {
+        "min": 40,
+        "max": 130
+      },
+      "fuente": "AHA — frecuencia cardíaca en reposo"
+    },
+    "sistolica": {
+      "unidad": "mmHg",
+      "amarillo": {
+        "min": 90,
+        "max": 130
+      },
+      "rojo": {
+        "min": 80,
+        "max": 181
+      },
+      "fuente": "AHA — presión arterial; MedlinePlus — hipotensión"
+    },
+    "diastolica": {
+      "unidad": "mmHg",
+      "amarillo": {
+        "min": 60,
+        "max": 80
+      },
+      "rojo": {
+        "min": 50,
+        "max": 121
+      },
+      "fuente": "AHA — presión arterial; MedlinePlus — hipotensión"
+    },
+    "glucosa": {
+      "unidad": "mg/dl",
+      "amarillo": {
+        "min": 70,
+        "max": 181
+      },
+      "rojo": {
+        "min": 54,
+        "max": 251
+      },
+      "fuente": "ADA — Standards of Care in Diabetes 2024, §6"
+    },
+    "sueno": {
+      "unidad": "h",
+      "amarillo": {
+        "min": 7,
+        "max": null
+      },
+      "rojo": {
+        "min": 5,
+        "max": null
+      },
+      "fuente": "CDC — horas de sueño en adultos"
+    },
+    "animo": {
+      "unidad": "escala 1–5",
+      "amarillo": {
+        "min": 3,
+        "max": null
+      },
+      "rojo": {
+        "min": 2,
+        "max": null
+      },
+      "fuente": "Autorregistro del astronauta"
+    }
+  },
+  "aviso_tierra": {
+    "rojo": "aviso inmediato",
+    "amarillo": "aviso si se repite 3 lecturas seguidas (3 días seguidos en indicadores diarios: sueño y presión del WHOOP)",
+    "lecturas_seguidas": 3
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "_descripcion": "Parámetros de cada hábitat. Copia de referencia de api/evaluar.py y public/app.js.",
+  "limite_carrera_mSv": 600,
+  "habitats": {
+    "iss": {
+      "nombre": "Estación Espacial Internacional",
+      "gravedad_g": 0,
+      "retraso_mensajes_s": 0.5,
+      "radiacion_mSv_dia": 0.35,
+      "perdida_osea_pct_mes": [
+        1,
+        1.5
+      ]
+    },
+    "transito": {
+      "nombre": "Nave en tránsito a Marte",
+      "gravedad_g": 0,
+      "retraso_mensajes_s": 720,
+      "retraso_real_min": [
+        3,
+        22
+      ],
+      "radiacion_mSv_dia": 1.8,
+      "perdida_osea_pct_mes": [
+        1,
+        1.5
+      ]
+    },
+    "luna": {
+      "nombre": "Base lunar",
+      "gravedad_g": 0.16,
+      "retraso_mensajes_s": 1.3,
+      "radiacion_mSv_dia": 0.35,
+      "perdida_osea_pct_mes": null
+    },
+    "marte": {
+      "nombre": "Base en Marte",
+      "gravedad_g": 0.38,
+      "retraso_mensajes_s": 720,
+      "retraso_real_min": [
+        3,
+        22
+      ],
+      "radiacion_mSv_dia": 0.64,
+      "radiacion_previa_mSv": "1.8 × 180 días de tránsito",
+      "perdida_osea_pct_mes": null
+    }
+  },
+  "nota": "El retraso de Marte se simula con 12 minutos (valor intermedio); el real varía entre 3 y 22 minutos según la posición de los planetas."
+}
