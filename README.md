@@ -176,7 +176,9 @@ Full list: [`data/fuentes.md`](data/fuentes.md).
 
 ## Team REN3RS
 
-- **Daphne** — Software development, game/evaluation logic, integration.
+- **Daphne** (me)
+- **Manuel**
+- **Ronald**
 <!-- Add other team members here -->
 
 **Local event:** NASA Space Apps Santo Domingo — INTEC, Nov 14–15, 2026.
