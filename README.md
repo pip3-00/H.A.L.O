@@ -8,7 +8,9 @@
 ![H.A.L.O. home screen](docs/images/hero.png)
 
 -🔗 **Live demo:** (https://lasana00.vercel.app/)
+
 -🎥 **30-second demo video:** (https://drive.google.com/file/d/1XykPVtq1RWY58P0xgmo_GscTQLG0q8P_/view?usp=sharing)
+
 -🏆 **NASA Space Apps project page:** (https://www.spaceappschallenge.org/2026/find-a-team/run3rs/?tab=project)
 
 ---
