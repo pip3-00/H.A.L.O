@@ -7,9 +7,11 @@
 
 ![Pantalla de inicio de H.A.L.O.](docs/images/es/hero.png)
 
-🔗 **Demo en vivo:** (https://lasana00.vercel.app/)
-🎥 **Video de 30 segundos:** (https://drive.google.com/file/d/1XykPVtq1RWY58P0xgmo_GscTQLG0q8P_/view?usp=sharing)
-🏆 **Página del proyecto en NASA Space Apps:** (https://www.spaceappschallenge.org/2026/find-a-team/run3rs/?tab=project)
+-🔗 **Demo en vivo:** (https://lasana00.vercel.app/)
+
+-🎥 **Video de 30 segundos:** (https://drive.google.com/file/d/1XykPVtq1RWY58P0xgmo_GscTQLG0q8P_/view?usp=sharing)
+
+-🏆 **Página del proyecto en NASA Space Apps:** (https://www.spaceappschallenge.org/2026/find-a-team/run3rs/?tab=project)
 
 ---
 
@@ -176,7 +178,9 @@ Lista completa: [`data/fuentes.md`](data/fuentes.md).
 
 ## Equipo REN3RS
 
-- **Daphne** — Desarrollo de software, lógica de evaluación y del juego, integración.
+- **Daphne**
+- **Manuel**
+- **Ronald**
 <!-- Agrega aquí a los demás miembros del equipo -->
 
 **Evento local:** NASA Space Apps Santo Domingo — INTEC, 14 y 15 de noviembre de 2026.
